@@ -1028,38 +1028,24 @@ function ensureContainerSystemRunning(): void {
 
   // Kill and clean up orphaned NanoClaw containers from previous runs
   try {
-    // Stop any running containers first (orphans from previous service instance)
-    const running = execSync('container ls --format {{.Names}}', {
+    const output = execSync('container ls --format json', {
       stdio: ['pipe', 'pipe', 'pipe'],
       encoding: 'utf-8',
     });
-    const runningContainers = running
-      .split('\n')
-      .map((n) => n.trim())
-      .filter((n) => n.startsWith('nanoclaw-'));
-    if (runningContainers.length > 0) {
-      execSync(`container stop ${runningContainers.join(' ')}`, { stdio: 'pipe' });
-      logger.info({ count: runningContainers.length }, 'Stopped orphaned containers');
+    const containers: { status: string; configuration: { id: string } }[] = JSON.parse(output || '[]');
+    const orphans = containers
+      .filter((c) => c.status === 'running' && c.configuration.id.startsWith('nanoclaw-'))
+      .map((c) => c.configuration.id);
+    for (const name of orphans) {
+      try {
+        execSync(`container stop ${name}`, { stdio: 'pipe' });
+      } catch { /* already stopped */ }
     }
-  } catch {
-    // No running containers or stop not supported
-  }
-  try {
-    // Remove stopped containers
-    const output = execSync('container ls -a --format {{.Names}}', {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-    });
-    const stale = output
-      .split('\n')
-      .map((n) => n.trim())
-      .filter((n) => n.startsWith('nanoclaw-'));
-    if (stale.length > 0) {
-      execSync(`container rm ${stale.join(' ')}`, { stdio: 'pipe' });
-      logger.info({ count: stale.length }, 'Cleaned up stopped containers');
+    if (orphans.length > 0) {
+      logger.info({ count: orphans.length, names: orphans }, 'Stopped orphaned containers');
     }
-  } catch {
-    // No stopped containers or ls/rm not supported
+  } catch (err) {
+    logger.warn({ err }, 'Failed to clean up orphaned containers');
   }
 }
 
