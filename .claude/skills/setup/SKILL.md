@@ -137,7 +137,40 @@ else
 fi
 ```
 
-## 5. WhatsApp Authentication
+## 5. GitHub Integration (Optional)
+
+Ask the user:
+> Do you want the agent to be able to **push branches and create pull requests** on GitHub?
+>
+> This requires a GitHub Personal Access Token (classic). You can skip this and add it later.
+
+If **no**, skip to the next step.
+
+If **yes**:
+
+Tell the user:
+> 1. Go to https://github.com/settings/tokens (click **Tokens (classic)**)
+> 2. Generate a new **classic** token with the **`repo`** scope
+> 3. If you need access to multiple orgs, classic tokens work across all orgs you're a member of (fine-grained tokens are limited to a single owner)
+
+Ask them to paste the token or confirm they've added it to `.env` themselves.
+
+If they paste the token, append it to `.env`:
+
+```bash
+echo "GITHUB_TOKEN=<token>" >> .env
+```
+
+**Optional:** Ask if they want to customize the git identity used for commits:
+
+```bash
+echo "GIT_AUTHOR_NAME=<name>" >> .env
+echo "GIT_AUTHOR_EMAIL=<email>" >> .env
+```
+
+If they skip, defaults are used: `NanoClaw Agent` / `nanoclaw@users.noreply.github.com`.
+
+## 6. WhatsApp Authentication
 
 **USER ACTION REQUIRED**
 
@@ -159,7 +192,7 @@ Wait for the script to output "Successfully authenticated" then continue.
 
 If it says "Already authenticated", skip to the next step.
 
-## 6. Configure Assistant Name and Main Channel
+## 7. Configure Assistant Name and Main Channel
 
 This step configures three things at once: the trigger word, the main channel type, and the main channel selection.
 
@@ -273,7 +306,7 @@ Ensure the groups folder exists:
 mkdir -p groups/main/logs
 ```
 
-## 7. Configure External Directory Access (Mount Allowlist)
+## 8. Configure External Directory Access (Mount Allowlist)
 
 Ask the user:
 > Do you want the agent to be able to access any directories **outside** the NanoClaw project?
@@ -381,7 +414,7 @@ Tell the user:
 > ```
 > The folder appears inside the container at `/workspace/extra/<folder-name>` (derived from the last segment of the path). Add `"readonly": false` for write access, or `"containerPath": "custom-name"` to override the default name.
 
-## 8. Configure launchd Service
+## 9. Configure launchd Service
 
 Generate the plist file with correct paths automatically:
 
@@ -441,7 +474,7 @@ Verify it's running:
 launchctl list | grep nanoclaw
 ```
 
-## 9. Test
+## 10. Test
 
 Tell the user (using the assistant name they configured):
 > Send `@ASSISTANT_NAME hello` in your registered chat.
