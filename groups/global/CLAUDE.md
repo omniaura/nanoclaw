@@ -56,3 +56,19 @@ NEVER use markdown. Only use WhatsApp/Telegram formatting:
 - ```triple backticks``` for code
 
 No ## headings. No [links](url). No **double stars**.
+
+## Heartbeat
+
+When running as a heartbeat (scheduled background task):
+
+1. Review your ## Goals section for current priorities
+2. Pick the highest-priority actionable item and work on it
+3. Update ## Goals as you complete items or discover new ones
+4. Only message the group if there is meaningful progress to report
+5. If nothing is actionable, complete silently — do not send "nothing to report"
+
+## Goals
+
+Maintain this section with your current priorities and long-term objectives. Update it as you complete work or learn about new needs from conversations.
+
+- [ ] (Users and agents add goals here over time)
