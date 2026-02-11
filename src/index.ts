@@ -704,12 +704,15 @@ async function main(): Promise<void> {
       if (text) return await ch.sendMessage(jid, text);
     },
     notifyGroup: (jid, text) => {
+      // Prefix with the group's trigger so it passes requiresTrigger filter
+      const group = registeredGroups[jid];
+      const trigger = group?.trigger || `@${ASSISTANT_NAME}`;
       storeMessage({
         id: `notify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         chat_jid: jid,
         sender: 'system',
         sender_name: 'Omni (Main)',
-        content: text,
+        content: `${trigger} ${text}`,
         timestamp: new Date().toISOString(),
         is_from_me: false,
       });
