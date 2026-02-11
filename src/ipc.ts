@@ -17,6 +17,8 @@ import { HeartbeatConfig, RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<string | void>;
+  /** Store a message in a group's DB and enqueue it for agent processing */
+  notifyGroup: (jid: string, text: string) => void;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
   updateGroup: (jid: string, group: RegisteredGroup) => void;
@@ -114,6 +116,10 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     data.chatJid,
                     data.text,
                   );
+                  // Cross-group message from main: also wake up the target agent
+                  if (isMain && targetGroup && targetGroup.folder !== sourceGroup) {
+                    deps.notifyGroup(data.chatJid, data.text);
+                  }
                   logger.info(
                     { chatJid: data.chatJid, sourceGroup },
                     'IPC message sent',

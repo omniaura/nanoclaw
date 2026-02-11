@@ -703,6 +703,18 @@ async function main(): Promise<void> {
       const text = formatOutbound(ch, rawText);
       if (text) return await ch.sendMessage(jid, text);
     },
+    notifyGroup: (jid, text) => {
+      storeMessage({
+        id: `notify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: jid,
+        sender: 'system',
+        sender_name: 'Omni (Main)',
+        content: text,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+      });
+      queue.enqueueMessageCheck(jid);
+    },
     registeredGroups: () => registeredGroups,
     registerGroup,
     updateGroup: (jid, group) => {
