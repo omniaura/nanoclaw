@@ -18,6 +18,7 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "cron-parser": "^5.5.0",
+    "discord.js": "^14.16.0",
     "grammy": "^1.40.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",

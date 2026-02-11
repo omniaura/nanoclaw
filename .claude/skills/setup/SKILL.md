@@ -297,14 +297,17 @@ mkdir -p data
 
 Then write `data/registered_groups.json` with the correct JID, trigger, and timestamp.
 
-If the user chose a name other than `Andy`, also update:
+Ensure the groups folders exist and seed CLAUDE.md from templates:
+```bash
+mkdir -p groups/main/logs groups/global
+# Copy templates to CLAUDE.md if they don't exist yet
+[ ! -f groups/main/CLAUDE.md ] && cp groups/main/CLAUDE.md.template groups/main/CLAUDE.md
+[ ! -f groups/global/CLAUDE.md ] && cp groups/global/CLAUDE.md.template groups/global/CLAUDE.md
+```
+
+If the user chose a name other than `Omni`, update the copied CLAUDE.md files:
 1. `groups/global/CLAUDE.md` - Change "# Omni" and "You are Omni" to the new name
 2. `groups/main/CLAUDE.md` - Same changes at the top
-
-Ensure the groups folder exists:
-```bash
-mkdir -p groups/main/logs
-```
 
 ## 8. Configure External Directory Access (Mount Allowlist)
 

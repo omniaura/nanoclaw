@@ -5,11 +5,13 @@ import path from 'path';
 import {
   ASSISTANT_NAME,
   DATA_DIR,
+  DISCORD_BOT_TOKEN,
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
   TRIGGER_PATTERN,
 } from './config.js';
+import { DiscordChannel } from './channels/discord.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
 import {
   ContainerOutput,
@@ -34,9 +36,9 @@ import {
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
 import { startIpcWatcher } from './ipc.js';
-import { formatMessages, formatOutbound } from './router.js';
+import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
-import { NewMessage, RegisteredGroup } from './types.js';
+import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
 
 // Re-export for backwards compatibility during refactor
@@ -49,6 +51,7 @@ let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
 let whatsapp: WhatsAppChannel;
+let channels: Channel[] = [];
 const queue = new GroupQueue();
 
 function loadState(): void {
@@ -84,6 +87,17 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
   const groupDir = path.join(DATA_DIR, '..', 'groups', group.folder);
   fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
 
+  // Seed CLAUDE.md for Discord groups with secondary-channel instructions
+  if (jid.startsWith('dc:')) {
+    const claudeMdPath = path.join(groupDir, 'CLAUDE.md');
+    if (!fs.existsSync(claudeMdPath)) {
+      fs.writeFileSync(
+        claudeMdPath,
+        `## Channel: Discord (Secondary)\nThis group communicates via Discord, a secondary channel.\nYou can freely answer questions and have conversations here.\nFor significant actions (file changes, scheduled tasks, sending messages to other groups),\ncheck with the admin on WhatsApp first via the send_message tool to the main group.\nOver time, the admin will tell you which actions are always okay.\n`,
+      );
+    }
+  }
+
   logger.info(
     { jid, name: group.name, folder: group.folder },
     'Group registered',
@@ -99,7 +113,16 @@ export function getAvailableGroups(): import('./container-runner.js').AvailableG
   const registeredJids = new Set(Object.keys(registeredGroups));
 
   return chats
-    .filter((c) => c.jid !== '__group_sync__' && c.jid.endsWith('@g.us'))
+    .filter((c) => {
+      if (c.jid === '__group_sync__') return false;
+      // WhatsApp groups
+      if (c.jid.endsWith('@g.us')) return true;
+      // Discord channels (not DMs)
+      if (c.jid.startsWith('dc:') && !c.jid.startsWith('dc:dm:')) return true;
+      // Telegram groups
+      if (c.jid.startsWith('tg:')) return true;
+      return false;
+    })
     .map((c) => ({
       jid: c.jid,
       name: c.name,
@@ -165,7 +188,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
-  await whatsapp.setTyping(chatJid, true);
+  const channel = findChannel(channels, chatJid);
+  if (channel?.setTyping) await channel.setTyping(chatJid, true);
   let hadError = false;
 
   const output = await runAgent(group, prompt, chatJid, async (result) => {
@@ -175,8 +199,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
       const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
-      if (text) {
-        await whatsapp.sendMessage(chatJid, `${ASSISTANT_NAME}: ${text}`);
+      if (text && channel) {
+        const formatted = formatOutbound(channel, text);
+        if (formatted) await channel.sendMessage(chatJid, formatted);
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)
       resetIdleTimer();
@@ -187,7 +212,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }
   });
 
-  await whatsapp.setTyping(chatJid, false);
+  if (channel?.setTyping) await channel.setTyping(chatJid, false);
   if (idleTimer) clearTimeout(idleTimer);
 
   if (output === 'error' || hadError) {
@@ -449,7 +474,9 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     await queue.shutdown(10000);
-    await whatsapp.disconnect();
+    for (const ch of channels) {
+      await ch.disconnect();
+    }
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -464,6 +491,18 @@ async function main(): Promise<void> {
 
   // Connect — resolves when first connected
   await whatsapp.connect();
+  channels.push(whatsapp);
+
+  // Conditionally connect Discord
+  if (DISCORD_BOT_TOKEN) {
+    try {
+      const discord = new DiscordChannel(DISCORD_BOT_TOKEN);
+      await discord.connect();
+      channels.push(discord);
+    } catch (err) {
+      logger.error({ err }, 'Failed to connect Discord bot (continuing without Discord)');
+    }
+  }
 
   // Reconcile heartbeat tasks with group config before starting scheduler
   reconcileHeartbeats(registeredGroups);
@@ -475,12 +514,25 @@ async function main(): Promise<void> {
     queue,
     onProcess: (groupJid, proc, containerName, groupFolder) => queue.registerProcess(groupJid, proc, containerName, groupFolder),
     sendMessage: async (jid, rawText) => {
-      const text = formatOutbound(whatsapp, rawText);
-      if (text) await whatsapp.sendMessage(jid, text);
+      const ch = findChannel(channels, jid);
+      if (!ch) {
+        logger.warn({ jid }, 'No channel found for scheduled message');
+        return;
+      }
+      const text = formatOutbound(ch, rawText);
+      if (text) await ch.sendMessage(jid, text);
     },
   });
   startIpcWatcher({
-    sendMessage: (jid, text) => whatsapp.sendMessage(jid, text),
+    sendMessage: async (jid, rawText) => {
+      const ch = findChannel(channels, jid);
+      if (!ch) {
+        logger.warn({ jid }, 'No channel found for IPC message');
+        return;
+      }
+      const text = formatOutbound(ch, rawText);
+      if (text) await ch.sendMessage(jid, text);
+    },
     registeredGroups: () => registeredGroups,
     registerGroup,
     updateGroup: (jid, group) => {
