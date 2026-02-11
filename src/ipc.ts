@@ -173,6 +173,7 @@ export async function processTaskIpc(
     folder?: string;
     trigger?: string;
     containerConfig?: RegisteredGroup['containerConfig'];
+    discord_guild_id?: string;
     // For configure_heartbeat
     enabled?: boolean;
     interval?: string;
@@ -181,6 +182,9 @@ export async function processTaskIpc(
     // For share_request
     description?: string;
     sourceGroup?: string;
+    scope?: string;
+    serverFolder?: string;
+    discordGuildId?: string;
   },
   sourceGroup: string, // Verified identity from IPC directory
   isMain: boolean, // Verified from directory path
@@ -369,13 +373,23 @@ export async function processTaskIpc(
         break;
       }
       if (data.jid && data.name && data.folder && data.trigger) {
-        deps.registerGroup(data.jid, {
+        const groupToRegister: RegisteredGroup = {
           name: data.name,
           folder: data.folder,
           trigger: data.trigger,
           added_at: new Date().toISOString(),
           containerConfig: data.containerConfig,
-        });
+        };
+
+        // If a Discord guild ID is provided, set it and compute serverFolder
+        if (data.discord_guild_id) {
+          groupToRegister.discordGuildId = data.discord_guild_id;
+          // Derive server folder from guild ID — the backfill on next startup
+          // will resolve the guild name for a nicer slug
+          groupToRegister.serverFolder = `servers/${data.discord_guild_id}`;
+        }
+
+        deps.registerGroup(data.jid, groupToRegister);
       } else {
         logger.warn(
           { data },
@@ -453,10 +467,25 @@ export async function processTaskIpc(
       );
       const sourceName = sourceGroupEntry?.[1].name || sourceGroup;
 
-      const message = `*Context Request* from _${sourceName}_:\n\n${data.description}\n\n_Reply here to share context. I can write files to their workspace._`;
+      // Build path guidance so the admin knows exactly where to write context
+      const serverFolder = data.serverFolder;
+      const scope = data.scope || 'auto';
+      let pathGuidance: string;
+      if (serverFolder) {
+        pathGuidance = `\n\n*Where to write context:*\n• _Channel-specific:_ \`groups/${sourceGroup}/CLAUDE.md\`\n• _Server-wide (all Discord channels):_ \`groups/${serverFolder}/CLAUDE.md\``;
+        if (scope === 'server') {
+          pathGuidance += ' ← requested';
+        } else if (scope === 'channel') {
+          pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
+        }
+      } else {
+        pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
+      }
+
+      const message = `*Context Request* from _${sourceName}_:\n\n${data.description}${pathGuidance}\n\n_Reply here to share context. I can write files to their workspace._`;
       await deps.sendMessage(mainJid, message);
       logger.info(
-        { sourceGroup, mainJid },
+        { sourceGroup, mainJid, scope, serverFolder },
         'Share request forwarded to main group',
       );
       break;

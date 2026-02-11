@@ -53,6 +53,8 @@ export interface RegisteredGroup {
   containerConfig?: ContainerConfig;
   requiresTrigger?: boolean; // Default: true for groups, false for solo chats
   heartbeat?: HeartbeatConfig;
+  discordGuildId?: string;  // Discord guild/server ID (for server-level context)
+  serverFolder?: string;    // e.g., "servers/omniaura-discord" (shared across channels in same server)
 }
 
 export interface NewMessage {

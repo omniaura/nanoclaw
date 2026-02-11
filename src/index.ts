@@ -24,6 +24,7 @@ import {
   getAllRegisteredGroups,
   getAllSessions,
   getAllTasks,
+  getChatGuildId,
   getMessagesSince,
   getNewMessages,
   getRouterState,
@@ -98,10 +99,85 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
     }
   }
 
+  // Create server-level directory for Discord groups with a serverFolder
+  if (group.serverFolder) {
+    ensureServerDirectory(group.serverFolder);
+  }
+
   logger.info(
-    { jid, name: group.name, folder: group.folder },
+    { jid, name: group.name, folder: group.folder, serverFolder: group.serverFolder },
     'Group registered',
   );
+}
+
+/** Derive a server folder slug from a guild name */
+function slugifyGuildName(guildName: string): string {
+  return guildName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50);
+}
+
+/** Ensure the server-level shared directory exists and has a CLAUDE.md */
+function ensureServerDirectory(serverFolder: string): void {
+  const serverDir = path.join(DATA_DIR, '..', 'groups', serverFolder);
+  fs.mkdirSync(serverDir, { recursive: true });
+
+  const claudeMdPath = path.join(serverDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) {
+    fs.writeFileSync(
+      claudeMdPath,
+      `# Server Shared Context\n\nThis file is shared across all channels in this Discord server.\nUse it for team-level context: members, projects, repos, conventions.\nChannel-specific notes should go in the channel's own CLAUDE.md.\n`,
+    );
+    logger.info({ serverFolder }, 'Seeded server-level CLAUDE.md');
+  }
+}
+
+/**
+ * Backfill Discord guild IDs and server folders for registered groups.
+ * Called once after Discord connects.
+ */
+async function backfillDiscordGuildIds(discord: DiscordChannel): Promise<void> {
+  for (const [jid, group] of Object.entries(registeredGroups)) {
+    if (!jid.startsWith('dc:') || jid.startsWith('dc:dm:')) continue;
+    if (group.discordGuildId && group.serverFolder) continue;
+
+    const channelId = jid.startsWith('dc:') ? jid.slice(3) : null;
+    if (!channelId) continue;
+
+    // Try to get from chat metadata first
+    let guildId = group.discordGuildId || getChatGuildId(jid);
+
+    // Fall back to Discord API
+    if (!guildId) {
+      guildId = await discord.resolveGuildId(channelId);
+    }
+
+    if (!guildId) {
+      logger.warn({ jid, name: group.name }, 'Could not resolve Discord guild ID');
+      continue;
+    }
+
+    // Resolve guild name for the server folder slug
+    let serverFolder = group.serverFolder;
+    if (!serverFolder) {
+      const guildName = await discord.resolveGuildName(guildId);
+      const slug = guildName ? slugifyGuildName(guildName) : guildId;
+      serverFolder = `servers/${slug}`;
+    }
+
+    // Update the group
+    const updated: RegisteredGroup = { ...group, discordGuildId: guildId, serverFolder };
+    registeredGroups[jid] = updated;
+    setRegisteredGroup(jid, updated);
+
+    ensureServerDirectory(serverFolder);
+    logger.info(
+      { jid, name: group.name, guildId, serverFolder },
+      'Backfilled Discord guild ID and server folder',
+    );
+  }
 }
 
 /**
@@ -290,6 +366,8 @@ async function runAgent(
         groupFolder: group.folder,
         chatJid,
         isMain,
+        discordGuildId: group.discordGuildId,
+        serverFolder: group.serverFolder,
       },
       (proc, containerName) => queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,
@@ -509,6 +587,9 @@ async function main(): Promise<void> {
       const discord = new DiscordChannel(DISCORD_BOT_TOKEN);
       await discord.connect();
       channels.push(discord);
+
+      // Backfill guild IDs for existing Discord groups
+      await backfillDiscordGuildIds(discord);
     } catch (err) {
       logger.error({ err }, 'Failed to connect Discord bot (continuing without Discord)');
     }

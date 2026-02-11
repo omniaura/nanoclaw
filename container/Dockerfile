@@ -3,9 +3,8 @@
 
 FROM oven/bun:slim
 
-# Install system dependencies for Chromium
+# Install system dependencies for Chromium (libs needed by agent-browser's bundled Chromium)
 RUN apt-get update && apt-get install -y \
-    chromium \
     fonts-liberation \
     fonts-noto-color-emoji \
     libgbm1 \
@@ -34,12 +33,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Chromium path for agent-browser
-ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Install agent-browser and claude-code globally
-RUN bun install -g agent-browser @anthropic-ai/claude-code
+# Install agent-browser and claude-code globally, then download bundled Chromium
+RUN bun install -g agent-browser @anthropic-ai/claude-code \
+    && agent-browser install
 
 # Create app directory
 WORKDIR /app
@@ -54,7 +50,7 @@ RUN bun install
 COPY agent-runner/ ./
 
 # Create workspace directories
-RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
+RUN mkdir -p /workspace/group /workspace/global /workspace/server /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
 
 # Create entrypoint script
 # Sources env from mounted /workspace/env-dir/env if it exists (workaround for Apple Container -i bug)

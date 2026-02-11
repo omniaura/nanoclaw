@@ -106,6 +106,35 @@ export class DiscordChannel implements Channel {
     logger.info('Discord bot disconnected');
   }
 
+  /**
+   * Resolve the Discord guild ID for a channel.
+   * Used to backfill guildId for registered groups on startup.
+   */
+  async resolveGuildId(channelId: string): Promise<string | undefined> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel && 'guildId' in channel) {
+        return (channel as TextChannel).guildId || undefined;
+      }
+    } catch (err) {
+      logger.debug({ channelId, err }, 'Failed to resolve guild ID');
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolve the guild name for a given guild ID.
+   */
+  async resolveGuildName(guildId: string): Promise<string | undefined> {
+    try {
+      const guild = await this.client.guilds.fetch(guildId);
+      return guild?.name;
+    } catch (err) {
+      logger.debug({ guildId, err }, 'Failed to resolve guild name');
+    }
+    return undefined;
+  }
+
   async setTyping(jid: string, isTyping: boolean): Promise<void> {
     if (!isTyping) return; // Discord typing auto-expires
     const channelId = jidToChannelId(jid);
@@ -158,8 +187,8 @@ export class DiscordChannel implements Channel {
       ? senderName
       : (message.channel as TextChannel).name || chatJid;
 
-    // Store chat metadata for discovery
-    storeChatMetadata(chatJid, timestamp, chatName);
+    // Store chat metadata for discovery (include guild ID for server-level context)
+    storeChatMetadata(chatJid, timestamp, chatName, message.guildId || undefined);
 
     // Check if this chat is registered
     const registeredGroups = getAllRegisteredGroups();

@@ -19,6 +19,8 @@ const TASKS_DIR = path.join(IPC_DIR, 'tasks');
 const chatJid = process.env.NANOCLAW_CHAT_JID!;
 const groupFolder = process.env.NANOCLAW_GROUP_FOLDER!;
 const isMain = process.env.NANOCLAW_IS_MAIN === '1';
+const discordGuildId = process.env.NANOCLAW_DISCORD_GUILD_ID || undefined;
+const serverFolder = process.env.NANOCLAW_SERVER_FOLDER || undefined;
 
 function writeIpcFile(dir: string, data: object): string {
   fs.mkdirSync(dir, { recursive: true });
@@ -300,14 +302,15 @@ After enabling, edit your CLAUDE.md to add/update the ## Heartbeat and ## Goals 
 
 server.tool(
   'register_group',
-  `Register a new WhatsApp group so the agent can respond to messages there. Main group only.
+  `Register a new group so the agent can respond to messages there. Main group only.
 
-Use available_groups.json to find the JID for a group. The folder name should be lowercase with hyphens (e.g., "family-chat").`,
+Use available_groups.json to find the JID for a group. The folder name should be lowercase with hyphens (e.g., "family-chat"). For Discord channels, provide the discord_guild_id to enable server-level shared context.`,
   {
-    jid: z.string().describe('The WhatsApp JID (e.g., "120363336345536173@g.us")'),
+    jid: z.string().describe('The group JID (e.g., "120363336345536173@g.us" for WhatsApp, "dc:123456" for Discord)'),
     name: z.string().describe('Display name for the group'),
     folder: z.string().describe('Folder name for group files (lowercase, hyphens, e.g., "family-chat")'),
     trigger: z.string().describe('Trigger word (e.g., "@Andy")'),
+    discord_guild_id: z.string().optional().describe('Discord guild/server ID — enables server-level shared context across channels'),
   },
   async (args) => {
     if (!isMain) {
@@ -317,12 +320,13 @@ Use available_groups.json to find the JID for a group. The folder name should be
       };
     }
 
-    const data = {
+    const data: Record<string, string | undefined> = {
       type: 'register_group',
       jid: args.jid,
       name: args.name,
       folder: args.folder,
       trigger: args.trigger,
+      discord_guild_id: args.discord_guild_id,
       timestamp: new Date().toISOString(),
     };
 
@@ -339,13 +343,18 @@ server.tool(
   'Request context or information from the admin. Use this when you need information that you don\'t have access to — for example, files from another project, context from a different group, credentials, or any data outside your workspace. The request is sent to the admin who can then share the relevant context with you.',
   {
     description: z.string().describe('What context or information you need and why'),
+    scope: z.enum(['channel', 'server', 'auto']).default('auto')
+      .describe('Where the shared context should go: channel (just this channel), server (all channels in this Discord server), or auto (let admin decide)'),
   },
   async (args) => {
     writeIpcFile(TASKS_DIR, {
       type: 'share_request',
       description: args.description,
+      scope: args.scope,
       sourceGroup: groupFolder,
       chatJid,
+      serverFolder,
+      discordGuildId,
       timestamp: new Date().toISOString(),
     });
 

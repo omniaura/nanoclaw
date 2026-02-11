@@ -25,6 +25,8 @@ interface ContainerInput {
   chatJid: string;
   isMain: boolean;
   isScheduledTask?: boolean;
+  discordGuildId?: string;
+  serverFolder?: string;
 }
 
 interface ContainerOutput {
@@ -466,6 +468,8 @@ async function runQuery(
             NANOCLAW_CHAT_JID: containerInput.chatJid,
             NANOCLAW_GROUP_FOLDER: containerInput.groupFolder,
             NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
+            ...(containerInput.discordGuildId ? { NANOCLAW_DISCORD_GUILD_ID: containerInput.discordGuildId } : {}),
+            ...(containerInput.serverFolder ? { NANOCLAW_SERVER_FOLDER: containerInput.serverFolder } : {}),
           },
         },
       },
