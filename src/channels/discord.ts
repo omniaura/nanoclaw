@@ -1,0 +1,233 @@
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Events,
+  Message,
+  TextChannel,
+  DMChannel,
+  ChannelType,
+} from 'discord.js';
+
+import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
+import {
+  getAllRegisteredGroups,
+  storeChatMetadata,
+  storeMessageDirect,
+} from '../db.js';
+import { logger } from '../logger.js';
+import { Channel } from '../types.js';
+
+export class DiscordChannel implements Channel {
+  name = 'discord';
+  prefixAssistantName = false;
+
+  private client: Client;
+  private connected = false;
+  private token: string;
+
+  constructor(token: string) {
+    this.token = token;
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
+      ],
+      partials: [Partials.Channel],
+    });
+  }
+
+  async connect(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.client.once(Events.ClientReady, (readyClient) => {
+        this.connected = true;
+        logger.info(
+          { username: readyClient.user.tag, id: readyClient.user.id },
+          'Discord bot connected',
+        );
+        console.log(`\n  Discord bot: ${readyClient.user.tag}`);
+        resolve();
+      });
+
+      this.client.on(Events.MessageCreate, (message) => {
+        this.handleMessage(message).catch((err) =>
+          logger.error({ err }, 'Error handling Discord message'),
+        );
+      });
+
+      this.client.on(Events.Error, (err) => {
+        logger.error({ err }, 'Discord client error');
+      });
+
+      this.client.login(this.token).catch(reject);
+    });
+  }
+
+  async sendMessage(jid: string, text: string): Promise<void> {
+    const channelId = jidToChannelId(jid);
+    if (!channelId) {
+      logger.warn({ jid }, 'Cannot resolve Discord channel ID from JID');
+      return;
+    }
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel || !('send' in channel)) {
+        logger.warn({ jid, channelId }, 'Discord channel not found or not sendable');
+        return;
+      }
+
+      const chunks = splitMessage(text, 2000);
+      for (const chunk of chunks) {
+        await (channel as TextChannel | DMChannel).send(chunk);
+      }
+      logger.info({ jid, length: text.length }, 'Discord message sent');
+    } catch (err) {
+      logger.error({ jid, err }, 'Failed to send Discord message');
+    }
+  }
+
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  ownsJid(jid: string): boolean {
+    return jid.startsWith('dc:');
+  }
+
+  async disconnect(): Promise<void> {
+    this.connected = false;
+    this.client.destroy();
+    logger.info('Discord bot disconnected');
+  }
+
+  async setTyping(jid: string, isTyping: boolean): Promise<void> {
+    if (!isTyping) return; // Discord typing auto-expires
+    const channelId = jidToChannelId(jid);
+    if (!channelId) return;
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel && 'sendTyping' in channel) {
+        await (channel as TextChannel | DMChannel).sendTyping();
+      }
+    } catch (err) {
+      logger.debug({ jid, err }, 'Failed to send Discord typing indicator');
+    }
+  }
+
+  private async handleMessage(message: Message): Promise<void> {
+    // Ignore own messages
+    if (message.author.id === this.client.user?.id) return;
+    // Ignore other bots
+    if (message.author.bot) return;
+
+    const isDM = message.channel.type === ChannelType.DM;
+    const chatJid = isDM
+      ? `dc:dm:${message.author.id}`
+      : `dc:${message.channelId}`;
+
+    let content = message.content;
+    const timestamp = message.createdAt.toISOString();
+    const senderName =
+      message.member?.displayName || message.author.displayName || message.author.username;
+    const sender = message.author.id;
+    const msgId = message.id;
+
+    // Handle non-text content (attachments, embeds)
+    if (message.attachments.size > 0) {
+      const attachmentDescs = message.attachments.map((a) => {
+        if (a.contentType?.startsWith('image/')) return '[Image]';
+        if (a.contentType?.startsWith('video/')) return '[Video]';
+        if (a.contentType?.startsWith('audio/')) return '[Audio]';
+        return `[File: ${a.name || 'attachment'}]`;
+      });
+      const suffix = attachmentDescs.join(' ');
+      content = content ? `${content} ${suffix}` : suffix;
+    }
+
+    if (!content) return;
+
+    // Translate @bot mention into trigger format
+    const botId = this.client.user?.id;
+    if (botId && content.includes(`<@${botId}>`)) {
+      content = content.replace(new RegExp(`<@${botId}>`, 'g'), '').trim();
+      if (!TRIGGER_PATTERN.test(content)) {
+        content = `@${ASSISTANT_NAME} ${content}`;
+      }
+    }
+
+    // DMs always trigger — prepend trigger if not present
+    if (isDM && !TRIGGER_PATTERN.test(content)) {
+      content = `@${ASSISTANT_NAME} ${content}`;
+    }
+
+    // Determine chat name
+    const chatName = isDM
+      ? senderName
+      : (message.channel as TextChannel).name || chatJid;
+
+    // Store chat metadata for discovery
+    storeChatMetadata(chatJid, timestamp, chatName);
+
+    // Check if this chat is registered
+    const registeredGroups = getAllRegisteredGroups();
+    const group = registeredGroups[chatJid];
+
+    if (!group) {
+      logger.debug(
+        { chatJid, chatName },
+        'Message from unregistered Discord chat',
+      );
+      return;
+    }
+
+    // Store message — startMessageLoop() will pick it up
+    storeMessageDirect({
+      id: msgId,
+      chat_jid: chatJid,
+      sender,
+      sender_name: senderName,
+      content,
+      timestamp,
+      is_from_me: false,
+    });
+
+    logger.info(
+      { chatJid, chatName, sender: senderName },
+      'Discord message stored',
+    );
+  }
+}
+
+/** Convert a dc: JID to a Discord channel/user ID */
+function jidToChannelId(jid: string): string | null {
+  if (jid.startsWith('dc:dm:')) return jid.slice(6);
+  if (jid.startsWith('dc:')) return jid.slice(3);
+  return null;
+}
+
+/**
+ * Split a message into chunks respecting Discord's 2000-char limit.
+ * Prefers splitting at newlines, then spaces, then hard-splits.
+ */
+function splitMessage(text: string, maxLength: number): string[] {
+  if (text.length <= maxLength) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > maxLength) {
+    let splitIdx = remaining.lastIndexOf('\n', maxLength);
+    if (splitIdx <= 0) splitIdx = remaining.lastIndexOf(' ', maxLength);
+    if (splitIdx <= 0) splitIdx = maxLength;
+
+    chunks.push(remaining.slice(0, splitIdx));
+    remaining = remaining.slice(splitIdx).replace(/^\n/, '');
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
