@@ -91,6 +91,19 @@ function createSchema(database: Database): void {
   } catch {
     /* column already exists */
   }
+
+  // Add discord_guild_id and server_folder columns to registered_groups
+  try {
+    database.exec(`ALTER TABLE registered_groups ADD COLUMN discord_guild_id TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    database.exec(`ALTER TABLE registered_groups ADD COLUMN server_folder TEXT`);
+  } catch { /* column already exists */ }
+
+  // Add discord_guild_id column to chats table
+  try {
+    database.exec(`ALTER TABLE chats ADD COLUMN discord_guild_id TEXT`);
+  } catch { /* column already exists */ }
 }
 
 export function initDatabase(): void {
@@ -118,26 +131,29 @@ export function storeChatMetadata(
   chatJid: string,
   timestamp: string,
   name?: string,
+  discordGuildId?: string,
 ): void {
   if (name) {
     // Update with name, preserving existing timestamp if newer
     db.query(
       `
-      INSERT INTO chats (jid, name, last_message_time) VALUES (?, ?, ?)
+      INSERT INTO chats (jid, name, last_message_time, discord_guild_id) VALUES (?, ?, ?, ?)
       ON CONFLICT(jid) DO UPDATE SET
         name = excluded.name,
-        last_message_time = MAX(last_message_time, excluded.last_message_time)
+        last_message_time = MAX(last_message_time, excluded.last_message_time),
+        discord_guild_id = COALESCE(excluded.discord_guild_id, discord_guild_id)
     `,
-    ).run(chatJid, name, timestamp);
+    ).run(chatJid, name, timestamp, discordGuildId || null);
   } else {
     // Update timestamp only, preserve existing name if any
     db.query(
       `
-      INSERT INTO chats (jid, name, last_message_time) VALUES (?, ?, ?)
+      INSERT INTO chats (jid, name, last_message_time, discord_guild_id) VALUES (?, ?, ?, ?)
       ON CONFLICT(jid) DO UPDATE SET
-        last_message_time = MAX(last_message_time, excluded.last_message_time)
+        last_message_time = MAX(last_message_time, excluded.last_message_time),
+        discord_guild_id = COALESCE(excluded.discord_guild_id, discord_guild_id)
     `,
-    ).run(chatJid, chatJid, timestamp);
+    ).run(chatJid, chatJid, timestamp, discordGuildId || null);
   }
 }
 
@@ -174,6 +190,16 @@ export function getAllChats(): ChatInfo[] {
   `,
     )
     .all() as ChatInfo[];
+}
+
+/**
+ * Get the Discord guild ID for a chat JID from stored metadata.
+ */
+export function getChatGuildId(chatJid: string): string | undefined {
+  const row = db
+    .prepare('SELECT discord_guild_id FROM chats WHERE jid = ?')
+    .get(chatJid) as { discord_guild_id: string | null } | undefined;
+  return row?.discord_guild_id || undefined;
 }
 
 /**
@@ -476,6 +502,8 @@ export function getRegisteredGroup(
         container_config: string | null;
         requires_trigger: number | null;
         heartbeat: string | null;
+        discord_guild_id: string | null;
+        server_folder: string | null;
       }
     | undefined;
   if (!row) return undefined;
@@ -492,6 +520,8 @@ export function getRegisteredGroup(
     heartbeat: row.heartbeat
       ? (JSON.parse(row.heartbeat) as HeartbeatConfig)
       : undefined,
+    discordGuildId: row.discord_guild_id || undefined,
+    serverFolder: row.server_folder || undefined,
   };
 }
 
@@ -500,8 +530,8 @@ export function setRegisteredGroup(
   group: RegisteredGroup,
 ): void {
   db.query(
-    `INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger, heartbeat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger, heartbeat, discord_guild_id, server_folder)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     jid,
     group.name,
@@ -511,6 +541,8 @@ export function setRegisteredGroup(
     group.containerConfig ? JSON.stringify(group.containerConfig) : null,
     group.requiresTrigger === undefined ? 1 : group.requiresTrigger ? 1 : 0,
     group.heartbeat ? JSON.stringify(group.heartbeat) : null,
+    group.discordGuildId || null,
+    group.serverFolder || null,
   );
 }
 
@@ -526,6 +558,8 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
     container_config: string | null;
     requires_trigger: number | null;
     heartbeat: string | null;
+    discord_guild_id: string | null;
+    server_folder: string | null;
   }>;
   const result: Record<string, RegisteredGroup> = {};
   for (const row of rows) {
@@ -541,6 +575,8 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
       heartbeat: row.heartbeat
         ? (JSON.parse(row.heartbeat) as HeartbeatConfig)
         : undefined,
+      discordGuildId: row.discord_guild_id || undefined,
+      serverFolder: row.server_folder || undefined,
     };
   }
   return result;

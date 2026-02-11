@@ -16,7 +16,9 @@ import { reconcileHeartbeats } from './task-scheduler.js';
 import { HeartbeatConfig, RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
-  sendMessage: (jid: string, text: string) => Promise<void>;
+  sendMessage: (jid: string, text: string) => Promise<string | void>;
+  /** Store a message in a group's DB and enqueue it for agent processing */
+  notifyGroup: (jid: string, text: string) => void;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
   updateGroup: (jid: string, group: RegisteredGroup) => void;
@@ -28,6 +30,36 @@ export interface IpcDeps {
     availableGroups: AvailableGroup[],
     registeredJids: Set<string>,
   ) => void;
+}
+
+// --- Pending share request tracking ---
+
+export interface PendingShareRequest {
+  sourceJid: string;
+  sourceName: string;
+  sourceGroup: string;
+  description: string;
+  serverFolder?: string;
+  timestamp: number;
+}
+
+const pendingShareRequests = new Map<string, PendingShareRequest>();
+const STALE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function trackShareRequest(messageId: string, meta: PendingShareRequest): void {
+  // Clean stale entries
+  const now = Date.now();
+  for (const [id, entry] of pendingShareRequests) {
+    if (now - entry.timestamp > STALE_TTL_MS) pendingShareRequests.delete(id);
+  }
+  pendingShareRequests.set(messageId, meta);
+  logger.info({ messageId, sourceGroup: meta.sourceGroup }, 'Share request tracked for reaction approval');
+}
+
+export function consumeShareRequest(messageId: string): PendingShareRequest | undefined {
+  const entry = pendingShareRequests.get(messageId);
+  if (entry) pendingShareRequests.delete(messageId);
+  return entry;
 }
 
 let ipcWatcherRunning = false;
@@ -84,6 +116,10 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     data.chatJid,
                     data.text,
                   );
+                  // Cross-group message from main: also wake up the target agent
+                  if (isMain && targetGroup && targetGroup.folder !== sourceGroup) {
+                    deps.notifyGroup(data.chatJid, data.text);
+                  }
                   logger.info(
                     { chatJid: data.chatJid, sourceGroup },
                     'IPC message sent',
@@ -173,11 +209,18 @@ export async function processTaskIpc(
     folder?: string;
     trigger?: string;
     containerConfig?: RegisteredGroup['containerConfig'];
+    discord_guild_id?: string;
     // For configure_heartbeat
     enabled?: boolean;
     interval?: string;
     heartbeat_schedule_type?: string;
     target_group_jid?: string;
+    // For share_request
+    description?: string;
+    sourceGroup?: string;
+    scope?: string;
+    serverFolder?: string;
+    discordGuildId?: string;
   },
   sourceGroup: string, // Verified identity from IPC directory
   isMain: boolean, // Verified from directory path
@@ -366,13 +409,23 @@ export async function processTaskIpc(
         break;
       }
       if (data.jid && data.name && data.folder && data.trigger) {
-        deps.registerGroup(data.jid, {
+        const groupToRegister: RegisteredGroup = {
           name: data.name,
           folder: data.folder,
           trigger: data.trigger,
           added_at: new Date().toISOString(),
           containerConfig: data.containerConfig,
-        });
+        };
+
+        // If a Discord guild ID is provided, set it and compute serverFolder
+        if (data.discord_guild_id) {
+          groupToRegister.discordGuildId = data.discord_guild_id;
+          // Derive server folder from guild ID — the backfill on next startup
+          // will resolve the guild name for a nicer slug
+          groupToRegister.serverFolder = `servers/${data.discord_guild_id}`;
+        }
+
+        deps.registerGroup(data.jid, groupToRegister);
       } else {
         logger.warn(
           { data },
@@ -424,6 +477,66 @@ export async function processTaskIpc(
       logger.info(
         { targetJid, folder: targetGroup.folder, enabled: data.enabled },
         'Heartbeat configured via IPC',
+      );
+      break;
+    }
+
+    case 'share_request': {
+      if (!data.description) {
+        logger.warn({ data }, 'share_request missing description');
+        break;
+      }
+
+      // Find the main group's JID to send the request to
+      const mainJid = Object.entries(registeredGroups).find(
+        ([, g]) => g.folder === MAIN_GROUP_FOLDER,
+      )?.[0];
+
+      if (!mainJid) {
+        logger.warn('share_request: could not find main group JID');
+        break;
+      }
+
+      // Find the source group's display name and JID
+      const sourceGroupEntry = Object.entries(registeredGroups).find(
+        ([, g]) => g.folder === sourceGroup,
+      );
+      const sourceName = sourceGroupEntry?.[1].name || sourceGroup;
+      const sourceJid = sourceGroupEntry?.[0] || sourceGroup;
+
+      // Build path guidance so the admin knows exactly where to write context
+      const serverFolder = data.serverFolder;
+      const scope = data.scope || 'auto';
+      let pathGuidance: string;
+      if (serverFolder) {
+        pathGuidance = `\n\n*Where to write context:*\n• _Channel-specific:_ \`groups/${sourceGroup}/CLAUDE.md\`\n• _Server-wide (all Discord channels):_ \`groups/${serverFolder}/CLAUDE.md\``;
+        if (scope === 'server') {
+          pathGuidance += ' ← requested';
+        } else if (scope === 'channel') {
+          pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
+        }
+      } else {
+        pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
+      }
+
+      const message = `*Context Request* from _${sourceName}_ (${sourceJid}):\n\n${data.description}${pathGuidance}\n\n_React 👍 to approve, or reply manually._`;
+      const sentId = await deps.sendMessage(mainJid, message);
+
+      // Track for reaction-based approval
+      if (sentId) {
+        trackShareRequest(sentId, {
+          sourceJid,
+          sourceName,
+          sourceGroup,
+          description: data.description,
+          serverFolder,
+          timestamp: Date.now(),
+        });
+      }
+
+      logger.info(
+        { sourceGroup, sourceJid, mainJid, scope, serverFolder, trackedMessageId: sentId },
+        'Share request forwarded to main group',
       );
       break;
     }

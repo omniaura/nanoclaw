@@ -12,8 +12,8 @@
     "typecheck": "bunx tsc --noEmit",
     "format": "bunx prettier --write \"src/**/*.ts\"",
     "format:check": "bunx prettier --check \"src/**/*.ts\"",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
@@ -28,9 +28,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/qrcode-terminal": "^0.12.2",
-    "@vitest/coverage-v8": "^4.0.18",
     "prettier": "^3.8.1",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.18"
+    "typescript": "^5.7.0"
   }
 }

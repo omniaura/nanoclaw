@@ -9,7 +9,10 @@ import {
   ChannelType,
 } from 'discord.js';
 
-import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
+import fs from 'fs';
+import path from 'path';
+
+import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
 import {
   getAllRegisteredGroups,
   storeChatMetadata,
@@ -103,6 +106,35 @@ export class DiscordChannel implements Channel {
     logger.info('Discord bot disconnected');
   }
 
+  /**
+   * Resolve the Discord guild ID for a channel.
+   * Used to backfill guildId for registered groups on startup.
+   */
+  async resolveGuildId(channelId: string): Promise<string | undefined> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel && 'guildId' in channel) {
+        return (channel as TextChannel).guildId || undefined;
+      }
+    } catch (err) {
+      logger.debug({ channelId, err }, 'Failed to resolve guild ID');
+    }
+    return undefined;
+  }
+
+  /**
+   * Resolve the guild name for a given guild ID.
+   */
+  async resolveGuildName(guildId: string): Promise<string | undefined> {
+    try {
+      const guild = await this.client.guilds.fetch(guildId);
+      return guild?.name;
+    } catch (err) {
+      logger.debug({ guildId, err }, 'Failed to resolve guild name');
+    }
+    return undefined;
+  }
+
   async setTyping(jid: string, isTyping: boolean): Promise<void> {
     if (!isTyping) return; // Discord typing auto-expires
     const channelId = jidToChannelId(jid);
@@ -136,20 +168,6 @@ export class DiscordChannel implements Channel {
     const sender = message.author.id;
     const msgId = message.id;
 
-    // Handle non-text content (attachments, embeds)
-    if (message.attachments.size > 0) {
-      const attachmentDescs = message.attachments.map((a) => {
-        if (a.contentType?.startsWith('image/')) return '[Image]';
-        if (a.contentType?.startsWith('video/')) return '[Video]';
-        if (a.contentType?.startsWith('audio/')) return '[Audio]';
-        return `[File: ${a.name || 'attachment'}]`;
-      });
-      const suffix = attachmentDescs.join(' ');
-      content = content ? `${content} ${suffix}` : suffix;
-    }
-
-    if (!content) return;
-
     // Translate @bot mention into trigger format
     const botId = this.client.user?.id;
     if (botId && content.includes(`<@${botId}>`)) {
@@ -169,8 +187,8 @@ export class DiscordChannel implements Channel {
       ? senderName
       : (message.channel as TextChannel).name || chatJid;
 
-    // Store chat metadata for discovery
-    storeChatMetadata(chatJid, timestamp, chatName);
+    // Store chat metadata for discovery (include guild ID for server-level context)
+    storeChatMetadata(chatJid, timestamp, chatName, message.guildId || undefined);
 
     // Check if this chat is registered
     const registeredGroups = getAllRegisteredGroups();
@@ -183,6 +201,39 @@ export class DiscordChannel implements Channel {
       );
       return;
     }
+
+    // Handle attachments (after group check so we know the folder for image downloads)
+    if (message.attachments.size > 0) {
+      const parts: string[] = [];
+      for (const [, a] of message.attachments) {
+        if (a.contentType?.startsWith('image/')) {
+          try {
+            const mediaDir = path.join(GROUPS_DIR, group.folder, 'media');
+            fs.mkdirSync(mediaDir, { recursive: true });
+            const filename = `${msgId}-${a.name || 'image.png'}`;
+            const resp = await fetch(a.url);
+            fs.writeFileSync(path.join(mediaDir, filename), Buffer.from(await resp.arrayBuffer()));
+            parts.push(`[attachment:image file=${filename}]`);
+          } catch (err) {
+            logger.error({ err, url: a.url }, 'Failed to download Discord image');
+            parts.push('[Image]');
+          }
+        } else if (a.contentType?.startsWith('video/')) {
+          parts.push('[Video]');
+        } else if (a.contentType?.startsWith('audio/')) {
+          parts.push('[Audio]');
+        } else {
+          parts.push(`[File: ${a.name || 'attachment'}]`);
+        }
+      }
+      const suffix = parts.join(' ');
+      content = content ? `${content} ${suffix}` : suffix;
+    }
+
+    if (!content) return;
+
+    // Clean up media files older than 24 hours
+    this.cleanupOldMedia(group.folder);
 
     // Store message — startMessageLoop() will pick it up
     storeMessageDirect({
@@ -199,6 +250,23 @@ export class DiscordChannel implements Channel {
       { chatJid, chatName, sender: senderName },
       'Discord message stored',
     );
+  }
+  private cleanupOldMedia(folder: string): void {
+    try {
+      const mediaDir = path.join(GROUPS_DIR, folder, 'media');
+      if (!fs.existsSync(mediaDir)) return;
+      const now = Date.now();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      for (const file of fs.readdirSync(mediaDir)) {
+        const filePath = path.join(mediaDir, file);
+        const stat = fs.statSync(filePath);
+        if (now - stat.mtimeMs > maxAge) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    } catch {
+      // Non-critical — ignore cleanup errors
+    }
   }
 }
 

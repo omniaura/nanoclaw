@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+// Set ASSISTANT_NAME before importing config (config reads it at import time)
+process.env.ASSISTANT_NAME = 'Andy';
+
+import { describe, it, expect } from 'bun:test';
 
 import { ASSISTANT_NAME, TRIGGER_PATTERN } from './config.js';
 import {

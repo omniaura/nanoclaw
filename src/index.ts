@@ -24,6 +24,7 @@ import {
   getAllRegisteredGroups,
   getAllSessions,
   getAllTasks,
+  getChatGuildId,
   getMessagesSince,
   getNewMessages,
   getRouterState,
@@ -35,7 +36,7 @@ import {
   storeMessage,
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
-import { startIpcWatcher } from './ipc.js';
+import { consumeShareRequest, startIpcWatcher } from './ipc.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
@@ -93,15 +94,125 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
     if (!fs.existsSync(claudeMdPath)) {
       fs.writeFileSync(
         claudeMdPath,
-        `## Channel: Discord (Secondary)\nThis group communicates via Discord, a secondary channel.\nYou can freely answer questions and have conversations here.\nFor significant actions (file changes, scheduled tasks, sending messages to other groups),\ncheck with the admin on WhatsApp first via the send_message tool to the main group.\nOver time, the admin will tell you which actions are always okay.\n`,
+        `## Channel: Discord (Secondary)
+This group communicates via Discord, a secondary channel.
+You can freely answer questions and have conversations here.
+For significant actions (file changes, scheduled tasks, sending messages to other groups),
+check with the admin on WhatsApp first via the send_message tool to the main group.
+Over time, the admin will tell you which actions are always okay.
+
+## Getting Context You Don't Have
+When you need project context, repo access, credentials, or information that hasn't been shared with you:
+- **Use \`share_request\` immediately** — do NOT ask the user directly for info the admin should provide.
+- \`share_request\` sends your request to the admin on WhatsApp. They will share context and notify you when it's ready.
+- Be specific in your request: describe exactly what you need and why.
+
+## Working with Repos
+You have \`git\` and \`GITHUB_TOKEN\` available in your environment.
+When the admin shares a repo URL, clone it yourself:
+\`\`\`bash
+git clone https://github.com/org/repo.git /workspace/group/repos/repo
+\`\`\`
+Then read the code directly — don't ask the admin to copy files for you.
+`,
       );
     }
   }
 
+  // Create server-level directory for Discord groups with a serverFolder
+  if (group.serverFolder) {
+    ensureServerDirectory(group.serverFolder);
+  }
+
   logger.info(
-    { jid, name: group.name, folder: group.folder },
+    { jid, name: group.name, folder: group.folder, serverFolder: group.serverFolder },
     'Group registered',
   );
+}
+
+/** Derive a server folder slug from a guild name */
+function slugifyGuildName(guildName: string): string {
+  return guildName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50);
+}
+
+/** Ensure the server-level shared directory exists and has a CLAUDE.md */
+function ensureServerDirectory(serverFolder: string): void {
+  const serverDir = path.join(DATA_DIR, '..', 'groups', serverFolder);
+  fs.mkdirSync(serverDir, { recursive: true });
+
+  const claudeMdPath = path.join(serverDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) {
+    fs.writeFileSync(
+      claudeMdPath,
+      `# Server Shared Context
+
+This file is shared across all channels in this Discord server.
+Use it for team-level context: members, projects, repos, conventions.
+Channel-specific notes should go in the channel's own CLAUDE.md.
+
+## Getting Context You Don't Have
+If you need project info, repo URLs, or credentials not listed here, use \`share_request\` to ask the admin.
+Don't ask users in Discord for info the admin should provide — use the tool and it will be routed to WhatsApp.
+
+## Working with Repos
+You have \`git\` and \`GITHUB_TOKEN\` available. When given a repo URL, clone it:
+\`\`\`bash
+git clone https://github.com/org/repo.git /workspace/group/repos/repo
+\`\`\`
+`,
+    );
+    logger.info({ serverFolder }, 'Seeded server-level CLAUDE.md');
+  }
+}
+
+/**
+ * Backfill Discord guild IDs and server folders for registered groups.
+ * Called once after Discord connects.
+ */
+async function backfillDiscordGuildIds(discord: DiscordChannel): Promise<void> {
+  for (const [jid, group] of Object.entries(registeredGroups)) {
+    if (!jid.startsWith('dc:') || jid.startsWith('dc:dm:')) continue;
+    if (group.discordGuildId && group.serverFolder) continue;
+
+    const channelId = jid.startsWith('dc:') ? jid.slice(3) : null;
+    if (!channelId) continue;
+
+    // Try to get from chat metadata first
+    let guildId = group.discordGuildId || getChatGuildId(jid);
+
+    // Fall back to Discord API
+    if (!guildId) {
+      guildId = await discord.resolveGuildId(channelId);
+    }
+
+    if (!guildId) {
+      logger.warn({ jid, name: group.name }, 'Could not resolve Discord guild ID');
+      continue;
+    }
+
+    // Resolve guild name for the server folder slug
+    let serverFolder = group.serverFolder;
+    if (!serverFolder) {
+      const guildName = await discord.resolveGuildName(guildId);
+      const slug = guildName ? slugifyGuildName(guildName) : guildId;
+      serverFolder = `servers/${slug}`;
+    }
+
+    // Update the group
+    const updated: RegisteredGroup = { ...group, discordGuildId: guildId, serverFolder };
+    registeredGroups[jid] = updated;
+    setRegisteredGroup(jid, updated);
+
+    ensureServerDirectory(serverFolder);
+    logger.info(
+      { jid, name: group.name, guildId, serverFolder },
+      'Backfilled Discord guild ID and server folder',
+    );
+  }
 }
 
 /**
@@ -290,6 +401,8 @@ async function runAgent(
         groupFolder: group.folder,
         chatJid,
         isMain,
+        discordGuildId: group.discordGuildId,
+        serverFolder: group.serverFolder,
       },
       (proc, containerName) => queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,
@@ -497,6 +610,50 @@ async function main(): Promise<void> {
     onMessage: (chatJid, msg) => storeMessage(msg),
     onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
     registeredGroups: () => registeredGroups,
+    onReaction: (chatJid, messageId, emoji) => {
+      // Only handle approval emojis
+      if (!emoji.startsWith('👍') && emoji !== '❤️' && emoji !== '✅') return;
+
+      const request = consumeShareRequest(messageId);
+      if (!request) return; // Not a tracked share request
+
+      // Find the main group's JID
+      const mainJid = Object.entries(registeredGroups).find(
+        ([, g]) => g.folder === MAIN_GROUP_FOLDER,
+      )?.[0];
+      if (!mainJid) return;
+
+      logger.info(
+        { messageId, emoji, sourceGroup: request.sourceGroup, sourceName: request.sourceName },
+        'Share request approved via reaction',
+      );
+
+      // Inject synthetic message into main group DB
+      const writePaths = request.serverFolder
+        ? `groups/${request.sourceGroup}/CLAUDE.md and/or groups/${request.serverFolder}/CLAUDE.md`
+        : `groups/${request.sourceGroup}/CLAUDE.md`;
+      const syntheticContent = [
+        `Share request APPROVED from ${request.sourceName} (${request.sourceJid}):`,
+        ``,
+        `${request.description}`,
+        ``,
+        `Fulfill this request — write context to ${writePaths}, clone repos if needed.`,
+        `When done, use send_message to ${request.sourceJid} to notify them: "Your context request has been fulfilled! [brief summary] — check your CLAUDE.md and workspace for updates."`,
+      ].join('\n');
+
+      storeMessage({
+        id: `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: mainJid,
+        sender: 'system',
+        sender_name: 'System',
+        content: syntheticContent,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+      });
+
+      // Wake up the main agent
+      queue.enqueueMessageCheck(mainJid);
+    },
   });
 
   // Connect — resolves when first connected
@@ -509,6 +666,9 @@ async function main(): Promise<void> {
       const discord = new DiscordChannel(DISCORD_BOT_TOKEN);
       await discord.connect();
       channels.push(discord);
+
+      // Backfill guild IDs for existing Discord groups
+      await backfillDiscordGuildIds(discord);
     } catch (err) {
       logger.error({ err }, 'Failed to connect Discord bot (continuing without Discord)');
     }
@@ -541,7 +701,22 @@ async function main(): Promise<void> {
         return;
       }
       const text = formatOutbound(ch, rawText);
-      if (text) await ch.sendMessage(jid, text);
+      if (text) return await ch.sendMessage(jid, text);
+    },
+    notifyGroup: (jid, text) => {
+      // Prefix with the group's trigger so it passes requiresTrigger filter
+      const group = registeredGroups[jid];
+      const trigger = group?.trigger || `@${ASSISTANT_NAME}`;
+      storeMessage({
+        id: `notify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: jid,
+        sender: 'system',
+        sender_name: 'Omni (Main)',
+        content: `${trigger} ${text}`,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+      });
+      queue.enqueueMessageCheck(jid);
     },
     registeredGroups: () => registeredGroups,
     registerGroup,

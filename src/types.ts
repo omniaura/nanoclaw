@@ -53,6 +53,8 @@ export interface RegisteredGroup {
   containerConfig?: ContainerConfig;
   requiresTrigger?: boolean; // Default: true for groups, false for solo chats
   heartbeat?: HeartbeatConfig;
+  discordGuildId?: string;  // Discord guild/server ID (for server-level context)
+  serverFolder?: string;    // e.g., "servers/omniaura-discord" (shared across channels in same server)
 }
 
 export interface NewMessage {
@@ -94,7 +96,7 @@ export interface TaskRunLog {
 export interface Channel {
   name: string;
   connect(): Promise<void>;
-  sendMessage(jid: string, text: string): Promise<void>;
+  sendMessage(jid: string, text: string): Promise<string | void>;
   isConnected(): boolean;
   ownsJid(jid: string): boolean;
   disconnect(): Promise<void>;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
 import {
   _initTestDatabase,
@@ -310,6 +310,6 @@ describe('task CRUD', () => {
     });
 
     deleteTask('task-3');
-    expect(getTaskById('task-3')).toBeUndefined();
+    expect(getTaskById('task-3')).toBeNull();
   });
 });

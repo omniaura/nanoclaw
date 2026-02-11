@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
 import {
   _initTestDatabase,
@@ -244,7 +244,7 @@ describe('cancel_task authorization', () => {
     });
 
     await processTaskIpc({ type: 'cancel_task', taskId: 'task-to-cancel' }, 'main', true, deps);
-    expect(getTaskById('task-to-cancel')).toBeUndefined();
+    expect(getTaskById('task-to-cancel')).toBeNull();
   });
 
   it('non-main group can cancel its own task', async () => {
@@ -262,7 +262,7 @@ describe('cancel_task authorization', () => {
     });
 
     await processTaskIpc({ type: 'cancel_task', taskId: 'task-own' }, 'other-group', false, deps);
-    expect(getTaskById('task-own')).toBeUndefined();
+    expect(getTaskById('task-own')).toBeNull();
   });
 
   it('non-main group cannot cancel another groups task', async () => {
@@ -592,6 +592,6 @@ describe('register_group success', () => {
       deps,
     );
 
-    expect(getRegisteredGroup('partial@g.us')).toBeUndefined();
+    expect(getRegisteredGroup('partial@g.us')).toBeNull();
   });
 });

@@ -39,6 +39,8 @@ export interface ContainerInput {
   chatJid: string;
   isMain: boolean;
   isScheduledTask?: boolean;
+  discordGuildId?: string;
+  serverFolder?: string;
 }
 
 export interface ContainerOutput {
@@ -93,6 +95,19 @@ function buildVolumeMounts(
         containerPath: '/workspace/global',
         readonly: true,
       });
+    }
+
+    // Server-level shared context directory (Discord servers)
+    // Channels in the same Discord server share this directory
+    if (group.serverFolder) {
+      const serverDir = path.join(GROUPS_DIR, group.serverFolder);
+      if (fs.existsSync(serverDir)) {
+        mounts.push({
+          hostPath: serverDir,
+          containerPath: '/workspace/server',
+          readonly: false,
+        });
+      }
     }
   }
 

@@ -25,6 +25,8 @@ interface ContainerInput {
   chatJid: string;
   isMain: boolean;
   isScheduledTask?: boolean;
+  discordGuildId?: string;
+  serverFolder?: string;
 }
 
 interface ContainerOutput {
@@ -45,9 +47,13 @@ interface SessionsIndex {
   entries: SessionEntry[];
 }
 
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } };
+
 interface SDKUserMessage {
   type: 'user';
-  message: { role: 'user'; content: string };
+  message: { role: 'user'; content: string | ContentBlock[] };
   parent_tool_use_id: null;
   session_id: string;
 }
@@ -68,7 +74,7 @@ class MessageStream {
   push(text: string): void {
     this.queue.push({
       type: 'user',
-      message: { role: 'user', content: text },
+      message: { role: 'user', content: buildContent(text) },
       parent_tool_use_id: null,
       session_id: '',
     });
@@ -113,6 +119,68 @@ function writeOutput(output: ContainerOutput): void {
 
 function log(message: string): void {
   console.error(`[agent-runner] ${message}`);
+}
+
+const IMAGE_MARKER_RE = /\[attachment:image file=([^\]]+)\]/g;
+
+const EXT_TO_MEDIA_TYPE: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+};
+
+/**
+ * Parse [attachment:image file=...] markers in text.
+ * Returns the original string if no images found, or ContentBlock[] with
+ * interleaved text and base64-encoded image blocks.
+ */
+function buildContent(text: string): string | ContentBlock[] {
+  const matches = [...text.matchAll(IMAGE_MARKER_RE)];
+  if (matches.length === 0) return text;
+
+  const blocks: ContentBlock[] = [];
+  let lastIndex = 0;
+
+  for (const match of matches) {
+    // Add preceding text
+    const before = text.slice(lastIndex, match.index);
+    if (before.trim()) {
+      blocks.push({ type: 'text', text: before });
+    }
+
+    const filename = match[1];
+    const filePath = path.join('/workspace/group/media', filename);
+
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath);
+        const ext = path.extname(filename).toLowerCase();
+        const mediaType = EXT_TO_MEDIA_TYPE[ext] || 'image/png';
+        blocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: data.toString('base64') },
+        });
+      } else {
+        log(`Image file not found: ${filePath}`);
+        blocks.push({ type: 'text', text: '[Image unavailable]' });
+      }
+    } catch (err) {
+      log(`Failed to read image ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      blocks.push({ type: 'text', text: '[Image unavailable]' });
+    }
+
+    lastIndex = match.index! + match[0].length;
+  }
+
+  // Add trailing text
+  const after = text.slice(lastIndex);
+  if (after.trim()) {
+    blocks.push({ type: 'text', text: after });
+  }
+
+  return blocks.length > 0 ? blocks : text;
 }
 
 function getSessionSummary(sessionId: string, transcriptPath: string): string | null {
@@ -400,6 +468,8 @@ async function runQuery(
             NANOCLAW_CHAT_JID: containerInput.chatJid,
             NANOCLAW_GROUP_FOLDER: containerInput.groupFolder,
             NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
+            ...(containerInput.discordGuildId ? { NANOCLAW_DISCORD_GUILD_ID: containerInput.discordGuildId } : {}),
+            ...(containerInput.serverFolder ? { NANOCLAW_SERVER_FOLDER: containerInput.serverFolder } : {}),
           },
         },
       },
