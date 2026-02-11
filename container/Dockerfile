@@ -33,9 +33,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install agent-browser and claude-code globally, then download bundled Chromium
+# Install agent-browser and claude-code globally, then download Chromium via bunx
+# (agent-browser install hardcodes npx in its native binary, so we bypass it)
 RUN bun install -g agent-browser @anthropic-ai/claude-code \
-    && agent-browser install
+    && bunx playwright install chromium
 
 # Create app directory
 WORKDIR /app
