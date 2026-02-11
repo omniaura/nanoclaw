@@ -16,7 +16,7 @@ import { reconcileHeartbeats } from './task-scheduler.js';
 import { HeartbeatConfig, RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
-  sendMessage: (jid: string, text: string) => Promise<void>;
+  sendMessage: (jid: string, text: string) => Promise<string | void>;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
   updateGroup: (jid: string, group: RegisteredGroup) => void;
@@ -28,6 +28,36 @@ export interface IpcDeps {
     availableGroups: AvailableGroup[],
     registeredJids: Set<string>,
   ) => void;
+}
+
+// --- Pending share request tracking ---
+
+export interface PendingShareRequest {
+  sourceJid: string;
+  sourceName: string;
+  sourceGroup: string;
+  description: string;
+  serverFolder?: string;
+  timestamp: number;
+}
+
+const pendingShareRequests = new Map<string, PendingShareRequest>();
+const STALE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function trackShareRequest(messageId: string, meta: PendingShareRequest): void {
+  // Clean stale entries
+  const now = Date.now();
+  for (const [id, entry] of pendingShareRequests) {
+    if (now - entry.timestamp > STALE_TTL_MS) pendingShareRequests.delete(id);
+  }
+  pendingShareRequests.set(messageId, meta);
+  logger.info({ messageId, sourceGroup: meta.sourceGroup }, 'Share request tracked for reaction approval');
+}
+
+export function consumeShareRequest(messageId: string): PendingShareRequest | undefined {
+  const entry = pendingShareRequests.get(messageId);
+  if (entry) pendingShareRequests.delete(messageId);
+  return entry;
 }
 
 let ipcWatcherRunning = false;
@@ -483,10 +513,23 @@ export async function processTaskIpc(
         pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
       }
 
-      const message = `*Context Request* from _${sourceName}_ (${sourceJid}):\n\n${data.description}${pathGuidance}\n\n_After sharing context, use send_message to ${sourceJid} to notify them._`;
-      await deps.sendMessage(mainJid, message);
+      const message = `*Context Request* from _${sourceName}_ (${sourceJid}):\n\n${data.description}${pathGuidance}\n\n_React 👍 to approve, or reply manually._`;
+      const sentId = await deps.sendMessage(mainJid, message);
+
+      // Track for reaction-based approval
+      if (sentId) {
+        trackShareRequest(sentId, {
+          sourceJid,
+          sourceName,
+          sourceGroup,
+          description: data.description,
+          serverFolder,
+          timestamp: Date.now(),
+        });
+      }
+
       logger.info(
-        { sourceGroup, sourceJid, mainJid, scope, serverFolder },
+        { sourceGroup, sourceJid, mainJid, scope, serverFolder, trackedMessageId: sentId },
         'Share request forwarded to main group',
       );
       break;

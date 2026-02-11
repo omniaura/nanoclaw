@@ -24,6 +24,7 @@ export interface WhatsAppChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
+  onReaction?: (chatJid: string, messageId: string, emoji: string) => void;
 }
 
 export class WhatsAppChannel implements Channel {
@@ -179,17 +180,26 @@ export class WhatsAppChannel implements Channel {
         }
       }
     });
+
+    this.sock.ev.on('messages.reaction', (reactions) => {
+      for (const { key, reaction } of reactions) {
+        if (!reaction?.text || !key.id || !key.remoteJid) continue;
+        const chatJid = this.translateJid(key.remoteJid);
+        this.opts.onReaction?.(chatJid, key.id, reaction.text);
+      }
+    });
   }
 
-  async sendMessage(jid: string, text: string): Promise<void> {
+  async sendMessage(jid: string, text: string): Promise<string | void> {
     if (!this.connected) {
       this.outgoingQueue.push({ jid, text });
       logger.info({ jid, length: text.length, queueSize: this.outgoingQueue.length }, 'WA disconnected, message queued');
       return;
     }
     try {
-      await this.sock.sendMessage(jid, { text });
+      const sent = await this.sock.sendMessage(jid, { text });
       logger.info({ jid, length: text.length }, 'Message sent');
+      return sent?.key?.id ?? undefined;
     } catch (err) {
       // If send fails, queue it for retry on reconnect
       this.outgoingQueue.push({ jid, text });

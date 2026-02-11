@@ -36,7 +36,7 @@ import {
   storeMessage,
 } from './db.js';
 import { GroupQueue } from './group-queue.js';
-import { startIpcWatcher } from './ipc.js';
+import { consumeShareRequest, startIpcWatcher } from './ipc.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
@@ -610,6 +610,50 @@ async function main(): Promise<void> {
     onMessage: (chatJid, msg) => storeMessage(msg),
     onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
     registeredGroups: () => registeredGroups,
+    onReaction: (chatJid, messageId, emoji) => {
+      // Only handle approval emojis
+      if (!emoji.startsWith('👍') && emoji !== '❤️' && emoji !== '✅') return;
+
+      const request = consumeShareRequest(messageId);
+      if (!request) return; // Not a tracked share request
+
+      // Find the main group's JID
+      const mainJid = Object.entries(registeredGroups).find(
+        ([, g]) => g.folder === MAIN_GROUP_FOLDER,
+      )?.[0];
+      if (!mainJid) return;
+
+      logger.info(
+        { messageId, emoji, sourceGroup: request.sourceGroup, sourceName: request.sourceName },
+        'Share request approved via reaction',
+      );
+
+      // Inject synthetic message into main group DB
+      const writePaths = request.serverFolder
+        ? `groups/${request.sourceGroup}/CLAUDE.md and/or groups/${request.serverFolder}/CLAUDE.md`
+        : `groups/${request.sourceGroup}/CLAUDE.md`;
+      const syntheticContent = [
+        `Share request APPROVED from ${request.sourceName} (${request.sourceJid}):`,
+        ``,
+        `${request.description}`,
+        ``,
+        `Fulfill this request — write context to ${writePaths}, clone repos if needed.`,
+        `When done, use send_message to ${request.sourceJid} to notify them: "Your context request has been fulfilled! [brief summary] — check your CLAUDE.md and workspace for updates."`,
+      ].join('\n');
+
+      storeMessage({
+        id: `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: mainJid,
+        sender: 'system',
+        sender_name: 'System',
+        content: syntheticContent,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+      });
+
+      // Wake up the main agent
+      queue.enqueueMessageCheck(mainJid);
+    },
   });
 
   // Connect — resolves when first connected
@@ -657,7 +701,7 @@ async function main(): Promise<void> {
         return;
       }
       const text = formatOutbound(ch, rawText);
-      if (text) await ch.sendMessage(jid, text);
+      if (text) return await ch.sendMessage(jid, text);
     },
     registeredGroups: () => registeredGroups,
     registerGroup,
