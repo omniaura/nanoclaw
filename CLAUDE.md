@@ -55,3 +55,18 @@ container builder stop && container builder rm && container builder start
 ```
 
 Always verify after rebuild: `container run -i --rm --entrypoint wc nanoclaw-agent:latest -l /app/src/index.ts`
+
+## Git Remotes & Pull Requests
+
+This repo is a **fork** (`omniaura/nanoclaw`) of the upstream (`qwibitai/nanoclaw`).
+
+- `origin` = `omniaura/nanoclaw` (our fork)
+- `upstream` = `qwibitai/nanoclaw` (the original)
+
+**NEVER open PRs directly against `qwibitai/nanoclaw` from our working branches.** Our fork has diverged (Bun runtime, Omni naming, custom integrations) — pushing fork-specific changes upstream is embarrassing and wrong.
+
+When the user asks to "make a PR":
+1. **Default:** PR goes to `origin` (our fork). Merge to our `main`.
+2. **Upstream PR:** Must be done separately. Create a dedicated branch off `upstream/main`, apply only the generic changes (no Omni references, no fork-specific code like bun:sqlite, email-channel, etc.), and PR from `omniaura:<branch>` → `qwibitai/nanoclaw:main`.
+
+Always confirm which target the user intends if it's ambiguous.
