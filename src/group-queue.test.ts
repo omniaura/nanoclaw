@@ -1,37 +1,32 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock, jest } from 'bun:test';
 
-import { GroupQueue } from './group-queue.js';
+import { mock as mockModule } from 'bun:test';
 
-// Mock config to control concurrency limit
-vi.mock('./config.js', () => ({
+mockModule.module('./config.js', () => ({
   DATA_DIR: '/tmp/nanoclaw-test-data',
   MAX_CONCURRENT_CONTAINERS: 2,
 }));
 
-// Mock fs operations used by sendMessage/closeStdin
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<typeof import('fs')>('fs');
-  return {
-    ...actual,
-    default: {
-      ...actual,
-      mkdirSync: vi.fn(),
-      writeFileSync: vi.fn(),
-      renameSync: vi.fn(),
-    },
-  };
-});
+mockModule.module('fs', () => ({
+  default: {
+    mkdirSync: mock(),
+    writeFileSync: mock(),
+    renameSync: mock(),
+  },
+}));
+
+import { GroupQueue } from './group-queue.js';
 
 describe('GroupQueue', () => {
   let queue: GroupQueue;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    jest.useFakeTimers();
     queue = new GroupQueue();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    jest.useRealTimers();
   });
 
   // --- Single group at a time ---
@@ -40,7 +35,7 @@ describe('GroupQueue', () => {
     let concurrentCount = 0;
     let maxConcurrent = 0;
 
-    const processMessages = vi.fn(async (groupJid: string) => {
+    const processMessages = mock(async (groupJid: string) => {
       concurrentCount++;
       maxConcurrent = Math.max(maxConcurrent, concurrentCount);
       // Simulate async work
@@ -56,7 +51,8 @@ describe('GroupQueue', () => {
     queue.enqueueMessageCheck('group1@g.us');
 
     // Advance timers to let the first process complete
-    await vi.advanceTimersByTimeAsync(200);
+    jest.advanceTimersByTime(200);
+    await Bun.sleep(0);
 
     // Second enqueue should have been queued, not concurrent
     expect(maxConcurrent).toBe(1);
@@ -69,7 +65,7 @@ describe('GroupQueue', () => {
     let maxActive = 0;
     const completionCallbacks: Array<() => void> = [];
 
-    const processMessages = vi.fn(async (groupJid: string) => {
+    const processMessages = mock(async (groupJid: string) => {
       activeCount++;
       maxActive = Math.max(maxActive, activeCount);
       await new Promise<void>((resolve) => completionCallbacks.push(resolve));
@@ -85,7 +81,8 @@ describe('GroupQueue', () => {
     queue.enqueueMessageCheck('group3@g.us');
 
     // Let promises settle
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     // Only 2 should be active (MAX_CONCURRENT_CONTAINERS = 2)
     expect(maxActive).toBe(2);
@@ -93,7 +90,8 @@ describe('GroupQueue', () => {
 
     // Complete one — third should start
     completionCallbacks[0]();
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     expect(processMessages).toHaveBeenCalledTimes(3);
   });
@@ -104,7 +102,7 @@ describe('GroupQueue', () => {
     const executionOrder: string[] = [];
     let resolveFirst: () => void;
 
-    const processMessages = vi.fn(async (groupJid: string) => {
+    const processMessages = mock(async (groupJid: string) => {
       if (executionOrder.length === 0) {
         // First call: block until we release it
         await new Promise<void>((resolve) => {
@@ -119,10 +117,11 @@ describe('GroupQueue', () => {
 
     // Start processing messages (takes the active slot)
     queue.enqueueMessageCheck('group1@g.us');
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     // While active, enqueue both a task and pending messages
-    const taskFn = vi.fn(async () => {
+    const taskFn = mock(async () => {
       executionOrder.push('task');
     });
     queue.enqueueTask('group1@g.us', 'task-1', taskFn);
@@ -130,7 +129,8 @@ describe('GroupQueue', () => {
 
     // Release the first processing
     resolveFirst!();
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     // Task should have run before the second message check
     expect(executionOrder[0]).toBe('messages'); // first call
@@ -143,7 +143,7 @@ describe('GroupQueue', () => {
   it('retries with exponential backoff on failure', async () => {
     let callCount = 0;
 
-    const processMessages = vi.fn(async () => {
+    const processMessages = mock(async () => {
       callCount++;
       return false; // failure
     });
@@ -152,30 +152,36 @@ describe('GroupQueue', () => {
     queue.enqueueMessageCheck('group1@g.us');
 
     // First call happens immediately
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
     expect(callCount).toBe(1);
 
     // First retry after 5000ms (BASE_RETRY_MS * 2^0)
-    await vi.advanceTimersByTimeAsync(5000);
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(5000);
+    await Bun.sleep(0);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
     expect(callCount).toBe(2);
 
     // Second retry after 10000ms (BASE_RETRY_MS * 2^1)
-    await vi.advanceTimersByTimeAsync(10000);
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10000);
+    await Bun.sleep(0);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
     expect(callCount).toBe(3);
   });
 
   // --- Shutdown prevents new enqueues ---
 
   it('prevents new enqueues after shutdown', async () => {
-    const processMessages = vi.fn(async () => true);
+    const processMessages = mock(async () => true);
     queue.setProcessMessagesFn(processMessages);
 
     await queue.shutdown(1000);
 
     queue.enqueueMessageCheck('group1@g.us');
-    await vi.advanceTimersByTimeAsync(100);
+    jest.advanceTimersByTime(100);
+    await Bun.sleep(0);
 
     expect(processMessages).not.toHaveBeenCalled();
   });
@@ -185,7 +191,7 @@ describe('GroupQueue', () => {
   it('stops retrying after MAX_RETRIES and resets', async () => {
     let callCount = 0;
 
-    const processMessages = vi.fn(async () => {
+    const processMessages = mock(async () => {
       callCount++;
       return false; // always fail
     });
@@ -195,19 +201,22 @@ describe('GroupQueue', () => {
 
     // Run through all 5 retries (MAX_RETRIES = 5)
     // Initial call
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
     expect(callCount).toBe(1);
 
     // Retry 1: 5000ms, Retry 2: 10000ms, Retry 3: 20000ms, Retry 4: 40000ms, Retry 5: 80000ms
     const retryDelays = [5000, 10000, 20000, 40000, 80000];
     for (let i = 0; i < retryDelays.length; i++) {
-      await vi.advanceTimersByTimeAsync(retryDelays[i] + 10);
+      jest.advanceTimersByTime(retryDelays[i] + 10);
+      await Bun.sleep(0);
       expect(callCount).toBe(i + 2);
     }
 
     // After 5 retries (6 total calls), should stop — no more retries
     const countAfterMaxRetries = callCount;
-    await vi.advanceTimersByTimeAsync(200000); // Wait a long time
+    jest.advanceTimersByTime(200000); // Wait a long time
+    await Bun.sleep(0);
     expect(callCount).toBe(countAfterMaxRetries);
   });
 
@@ -217,7 +226,7 @@ describe('GroupQueue', () => {
     const processed: string[] = [];
     const completionCallbacks: Array<() => void> = [];
 
-    const processMessages = vi.fn(async (groupJid: string) => {
+    const processMessages = mock(async (groupJid: string) => {
       processed.push(groupJid);
       await new Promise<void>((resolve) => completionCallbacks.push(resolve));
       return true;
@@ -228,17 +237,20 @@ describe('GroupQueue', () => {
     // Fill both slots
     queue.enqueueMessageCheck('group1@g.us');
     queue.enqueueMessageCheck('group2@g.us');
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     // Queue a third
     queue.enqueueMessageCheck('group3@g.us');
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     expect(processed).toEqual(['group1@g.us', 'group2@g.us']);
 
     // Free up a slot
     completionCallbacks[0]();
-    await vi.advanceTimersByTimeAsync(10);
+    jest.advanceTimersByTime(10);
+    await Bun.sleep(0);
 
     expect(processed).toContain('group3@g.us');
   });
