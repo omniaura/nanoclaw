@@ -94,7 +94,27 @@ function registerGroup(jid: string, group: RegisteredGroup): void {
     if (!fs.existsSync(claudeMdPath)) {
       fs.writeFileSync(
         claudeMdPath,
-        `## Channel: Discord (Secondary)\nThis group communicates via Discord, a secondary channel.\nYou can freely answer questions and have conversations here.\nFor significant actions (file changes, scheduled tasks, sending messages to other groups),\ncheck with the admin on WhatsApp first via the send_message tool to the main group.\nOver time, the admin will tell you which actions are always okay.\n`,
+        `## Channel: Discord (Secondary)
+This group communicates via Discord, a secondary channel.
+You can freely answer questions and have conversations here.
+For significant actions (file changes, scheduled tasks, sending messages to other groups),
+check with the admin on WhatsApp first via the send_message tool to the main group.
+Over time, the admin will tell you which actions are always okay.
+
+## Getting Context You Don't Have
+When you need project context, repo access, credentials, or information that hasn't been shared with you:
+- **Use \`share_request\` immediately** — do NOT ask the user directly for info the admin should provide.
+- \`share_request\` sends your request to the admin on WhatsApp. They will share context and notify you when it's ready.
+- Be specific in your request: describe exactly what you need and why.
+
+## Working with Repos
+You have \`git\` and \`GITHUB_TOKEN\` available in your environment.
+When the admin shares a repo URL, clone it yourself:
+\`\`\`bash
+git clone https://github.com/org/repo.git /workspace/group/repos/repo
+\`\`\`
+Then read the code directly — don't ask the admin to copy files for you.
+`,
       );
     }
   }
@@ -128,7 +148,22 @@ function ensureServerDirectory(serverFolder: string): void {
   if (!fs.existsSync(claudeMdPath)) {
     fs.writeFileSync(
       claudeMdPath,
-      `# Server Shared Context\n\nThis file is shared across all channels in this Discord server.\nUse it for team-level context: members, projects, repos, conventions.\nChannel-specific notes should go in the channel's own CLAUDE.md.\n`,
+      `# Server Shared Context
+
+This file is shared across all channels in this Discord server.
+Use it for team-level context: members, projects, repos, conventions.
+Channel-specific notes should go in the channel's own CLAUDE.md.
+
+## Getting Context You Don't Have
+If you need project info, repo URLs, or credentials not listed here, use \`share_request\` to ask the admin.
+Don't ask users in Discord for info the admin should provide — use the tool and it will be routed to WhatsApp.
+
+## Working with Repos
+You have \`git\` and \`GITHUB_TOKEN\` available. When given a repo URL, clone it:
+\`\`\`bash
+git clone https://github.com/org/repo.git /workspace/group/repos/repo
+\`\`\`
+`,
     );
     logger.info({ serverFolder }, 'Seeded server-level CLAUDE.md');
   }

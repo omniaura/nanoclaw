@@ -461,11 +461,12 @@ export async function processTaskIpc(
         break;
       }
 
-      // Find the source group's display name
+      // Find the source group's display name and JID
       const sourceGroupEntry = Object.entries(registeredGroups).find(
         ([, g]) => g.folder === sourceGroup,
       );
       const sourceName = sourceGroupEntry?.[1].name || sourceGroup;
+      const sourceJid = sourceGroupEntry?.[0] || sourceGroup;
 
       // Build path guidance so the admin knows exactly where to write context
       const serverFolder = data.serverFolder;
@@ -482,10 +483,10 @@ export async function processTaskIpc(
         pathGuidance = `\n\n*Write context to:* \`groups/${sourceGroup}/CLAUDE.md\``;
       }
 
-      const message = `*Context Request* from _${sourceName}_:\n\n${data.description}${pathGuidance}\n\n_Reply here to share context. I can write files to their workspace._`;
+      const message = `*Context Request* from _${sourceName}_ (${sourceJid}):\n\n${data.description}${pathGuidance}\n\n_After sharing context, use send_message to ${sourceJid} to notify them._`;
       await deps.sendMessage(mainJid, message);
       logger.info(
-        { sourceGroup, mainJid, scope, serverFolder },
+        { sourceGroup, sourceJid, mainJid, scope, serverFolder },
         'Share request forwarded to main group',
       );
       break;
