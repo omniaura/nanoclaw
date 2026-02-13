@@ -55,6 +55,9 @@ function buildVolumeMounts(
   const folder = getFolder(group);
   const srvFolder = getServerFolder(group);
 
+  const containerConfig = getContainerConfig(group);
+  const hasProjectAccess = isMain || !!containerConfig?.projectAccess;
+
   if (isMain) {
     mounts.push({
       hostPath: projectRoot,
@@ -66,6 +69,37 @@ function buildVolumeMounts(
       containerPath: '/workspace/group',
       readonly: false,
     });
+  } else if (hasProjectAccess) {
+    mounts.push({
+      hostPath: projectRoot,
+      containerPath: '/workspace/project',
+      readonly: false,
+    });
+    mounts.push({
+      hostPath: path.join(GROUPS_DIR, folder),
+      containerPath: '/workspace/group',
+      readonly: false,
+    });
+
+    const globalDir = path.join(GROUPS_DIR, 'global');
+    if (fs.existsSync(globalDir)) {
+      mounts.push({
+        hostPath: globalDir,
+        containerPath: '/workspace/global',
+        readonly: true,
+      });
+    }
+
+    if (srvFolder) {
+      const serverDir = path.join(GROUPS_DIR, srvFolder);
+      if (fs.existsSync(serverDir)) {
+        mounts.push({
+          hostPath: serverDir,
+          containerPath: '/workspace/server',
+          readonly: false,
+        });
+      }
+    }
   } else {
     mounts.push({
       hostPath: path.join(GROUPS_DIR, folder),
