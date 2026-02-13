@@ -4,13 +4,8 @@ set -e
 # Source environment variables from mounted env file
 [ -f /workspace/env-dir/env ] && export $(cat /workspace/env-dir/env | xargs)
 
-# Cap JS heap to prevent OOM (Apple Container --memory flag is broken in v0.9.0)
-# Only set heap caps in container environments; Sprites have more RAM and
-# BUN_JSC_MAX_HEAP_SIZE may not be supported in all bun versions.
+# Cap JS heap to prevent OOM
 export NODE_OPTIONS="--max-old-space-size=2048"
-if [ -f /.dockerenv ] || grep -q 'container' /proc/1/cgroup 2>/dev/null; then
-  export BUN_JSC_MAX_HEAP_SIZE=2147483648 2>/dev/null || true
-fi
 
 # Configure git with GitHub token
 if [ -n "$GITHUB_TOKEN" ]; then

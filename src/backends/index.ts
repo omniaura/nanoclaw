@@ -5,6 +5,7 @@
 
 import { logger } from '../logger.js';
 import { RegisteredGroup } from '../types.js';
+import { DaytonaBackend } from './daytona-backend.js';
 import { LocalBackend } from './local-backend.js';
 import { SpritesBackend } from './sprites-backend.js';
 import { AgentBackend, BackendType } from './types.js';
@@ -26,6 +27,9 @@ export function getBackend(type: BackendType): AgentBackend {
     case 'sprites':
       backend = new SpritesBackend();
       break;
+    case 'daytona':
+      backend = new DaytonaBackend();
+      break;
     default:
       throw new Error(`Unknown backend type: ${type}`);
   }
@@ -44,6 +48,12 @@ export function resolveBackend(group: RegisteredGroup): AgentBackend {
 export function getSpritesBackend(): SpritesBackend | null {
   const backend = backends.get('sprites');
   return backend instanceof SpritesBackend ? backend : null;
+}
+
+/** Get the Daytona backend instance (if any groups use it). */
+export function getDaytonaBackend(): DaytonaBackend | null {
+  const backend = backends.get('daytona');
+  return backend instanceof DaytonaBackend ? backend : null;
 }
 
 /**

@@ -15,6 +15,8 @@ import { transferFiles } from './file-transfer.js';
 import { logger } from './logger.js';
 import { reconcileHeartbeats } from './task-scheduler.js';
 import { BackendType, HeartbeatConfig, RegisteredGroup } from './types.js';
+import { DaytonaBackend } from './backends/daytona-backend.js';
+import { startDaytonaIpcPoller } from './backends/daytona-ipc-poller.js';
 import { startSpritesIpcPoller } from './backends/sprites-ipc-poller.js';
 import { SpritesBackend } from './backends/sprites-backend.js';
 import { getBackend } from './backends/index.js';
@@ -218,6 +220,37 @@ export function startIpcWatcher(deps: IpcDeps): void {
             deps.notifyGroup(data.chatJid, data.text);
           }
           logger.info({ chatJid: data.chatJid, sourceGroup }, 'Sprites IPC message sent');
+        }
+      }
+    },
+    processTask: async (sourceGroup, isMain, data) => {
+      await processTaskIpc(data, sourceGroup, isMain, deps);
+    },
+  });
+
+  // Also start Daytona IPC poller for Daytona-backed groups
+  startDaytonaIpcPoller({
+    daytonaBackend: (() => {
+      try {
+        return getBackend('daytona') as DaytonaBackend;
+      } catch {
+        return new DaytonaBackend();
+      }
+    })(),
+    registeredGroups: deps.registeredGroups,
+    processMessage: async (sourceGroup, data) => {
+      const registeredGroups = deps.registeredGroups();
+      if (data.type === 'message' && data.chatJid && data.text) {
+        const targetGroup = registeredGroups[data.chatJid];
+        const isRegisteredTarget = !!targetGroup;
+        const isSelf = targetGroup && targetGroup.folder === sourceGroup;
+        const isMain = sourceGroup === MAIN_GROUP_FOLDER;
+        if (isMain || isSelf || isRegisteredTarget) {
+          await deps.sendMessage(data.chatJid, data.text);
+          if (targetGroup && targetGroup.folder !== sourceGroup) {
+            deps.notifyGroup(data.chatJid, data.text);
+          }
+          logger.info({ chatJid: data.chatJid, sourceGroup }, 'Daytona IPC message sent');
         }
       }
     },
