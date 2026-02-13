@@ -5,7 +5,7 @@
 
 import { ContainerProcess, RegisteredGroup } from '../types.js';
 
-export type BackendType = 'apple-container' | 'docker' | 'sprites';
+export type BackendType = 'apple-container' | 'docker' | 'sprites' | 'daytona';
 
 export interface ContainerInput {
   prompt: string;
