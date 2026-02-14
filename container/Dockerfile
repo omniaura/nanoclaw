@@ -4,13 +4,25 @@
 FROM oven/bun:slim
 
 # Install Node.js (agents expect node/npm/npx to be available alongside bun)
-# and essential system tools
+# and essential system tools including Go
 RUN apt-get update && apt-get install -y \
     nodejs \
     npm \
     curl \
     git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Go (latest stable version)
+ARG GO_VERSION=1.23.5
+RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-arm64.tar.gz \
+    && tar -C /usr/local -xzf go${GO_VERSION}.linux-arm64.tar.gz \
+    && rm go${GO_VERSION}.linux-arm64.tar.gz
+
+# Set Go environment variables
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/bun/go"
+ENV PATH="${GOPATH}/bin:${PATH}"
 
 # Install GitHub CLI for PR creation and git authentication
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
