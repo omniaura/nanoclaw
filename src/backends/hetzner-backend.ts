@@ -161,9 +161,13 @@ export class HetznerBackend implements AgentBackend {
     }
   }
 
+  private sanitizeName(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'agent';
+  }
+
   private async createEphemeralServer(agentId: string): Promise<HetznerServerContext> {
-    const appName = ASSISTANT_NAME.toLowerCase();
-    const serverName = `${appName}-${agentId}-${Date.now()}`;
+    const appName = this.sanitizeName(ASSISTANT_NAME);
+    const serverName = `${appName}-${this.sanitizeName(agentId)}-${Date.now()}`.slice(0, 63);
 
     // No host-side SSH key needed — VMs are fully managed via cloud-init + S3.
     // If the agent needs git SSH keys, cloud-init generates them on the VM
@@ -231,7 +235,7 @@ export class HetznerBackend implements AgentBackend {
    * with limited bucket permissions and short TTLs.
    */
   private generateCloudInit(agentId: string): string {
-    const appName = ASSISTANT_NAME.toLowerCase();
+    const appName = this.sanitizeName(ASSISTANT_NAME);
     return `#cloud-config
 package_update: true
 package_upgrade: true
@@ -320,13 +324,17 @@ runcmd:
       logger.warn('B2_ENDPOINT not set — Hetzner backend requires S3 storage');
       return;
     }
+    if (!B2_ACCESS_KEY_ID || !B2_SECRET_ACCESS_KEY || !B2_BUCKET) {
+      logger.warn('B2 credentials incomplete — Hetzner backend requires S3 storage');
+      return;
+    }
 
     this.s3 = new NanoClawS3({
-      endpoint: B2_ENDPOINT!,
+      endpoint: B2_ENDPOINT,
       region: B2_REGION,
-      accessKeyId: B2_ACCESS_KEY_ID!,
-      secretAccessKey: B2_SECRET_ACCESS_KEY!,
-      bucket: B2_BUCKET!,
+      accessKeyId: B2_ACCESS_KEY_ID,
+      secretAccessKey: B2_SECRET_ACCESS_KEY,
+      bucket: B2_BUCKET,
     });
 
     logger.info('Hetzner backend initialized with S3 storage');

@@ -1,5 +1,5 @@
 /**
- * Hetzner Cloud API wrapper for NanoClaw.
+ * Hetzner Cloud API wrapper.
  * Provides lifecycle management for Hetzner Cloud servers (VMs).
  */
 
@@ -44,7 +44,14 @@ async function hetznerApi<T>(
     options.body = JSON.stringify(body);
   }
 
-  const resp = await fetch(url, options);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  let resp: Response;
+  try {
+    resp = await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Handle empty responses (204 No Content, e.g. DELETE operations)
   let json: unknown = {};
