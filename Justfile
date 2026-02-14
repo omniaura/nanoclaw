@@ -37,6 +37,10 @@ install:
 restart:
     launchctl kickstart -k gui/$(id -u)/com.nanoclaw
 
+# Build the agent container image. Usage: just build-container [tag]  (default tag: latest)
+build-container tag="latest":
+    ./container/build.sh {{tag}}
+
 # Stop NanoClaw (unload launchd service)
 stop:
     launchctl bootout gui/$(id -u)/com.nanoclaw
