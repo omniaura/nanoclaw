@@ -85,9 +85,9 @@ Each file should contain:
 ## Tips
 
 - Use `calculateGrowth()` helper to get percentage changes
-- Use `getRecentDays()` to filter to last N days
-- Use `calculateRollingAverage()` to smooth noisy data
 - Data points are sorted chronologically by date
+- All revenue metrics are automatically converted from cents to dollars
+- Dates are in YYYY-MM-DD format for easy sorting and filtering
 
 ## Dependencies
 
