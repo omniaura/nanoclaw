@@ -8,9 +8,12 @@ import { logger } from '../logger.js';
 
 const HETZNER_API_URL = 'https://api.hetzner.cloud/v1';
 
-interface HetznerResponse<T> {
-  [key: string]: T;
-}
+/** Hetzner API responses use endpoint-specific shapes. */
+interface SSHKeyResponse { ssh_key: HetznerSSHKey; }
+interface ServerResponse { server: HetznerServer; action: HetznerAction; }
+interface ServerGetResponse { server: HetznerServer; }
+interface ActionResponse { action: HetznerAction; }
+interface DeleteResponse { action: HetznerAction; }
 
 interface HetznerError {
   error: {
@@ -42,7 +45,13 @@ async function hetznerApi<T>(
   }
 
   const resp = await fetch(url, options);
-  const json = await resp.json();
+
+  // Handle empty responses (204 No Content, e.g. DELETE operations)
+  let json: unknown = {};
+  const contentLength = resp.headers.get('content-length');
+  if (resp.status !== 204 && contentLength !== '0') {
+    json = await resp.json();
+  }
 
   if (!resp.ok) {
     const error = json as HetznerError;
@@ -82,7 +91,7 @@ export interface HetznerAction {
 
 /** Create a new SSH key. */
 export async function createSSHKey(name: string, publicKey: string): Promise<HetznerSSHKey> {
-  const data = await hetznerApi<HetznerResponse<HetznerSSHKey>>('POST', '/ssh_keys', {
+  const data = await hetznerApi<SSHKeyResponse>('POST', '/ssh_keys', {
     name,
     public_key: publicKey,
   });
@@ -92,7 +101,7 @@ export async function createSSHKey(name: string, publicKey: string): Promise<Het
 
 /** Delete an SSH key. */
 export async function deleteSSHKey(keyId: number): Promise<void> {
-  await hetznerApi('DELETE', `/ssh_keys/${keyId}`);
+  await hetznerApi<unknown>('DELETE', `/ssh_keys/${keyId}`);
   logger.info({ keyId }, 'Deleted Hetzner SSH key');
 }
 
@@ -105,7 +114,7 @@ export async function createServer(
   sshKeys: number[],
   userData?: string,
 ): Promise<{ server: HetznerServer; action: HetznerAction }> {
-  const data = await hetznerApi<HetznerResponse<{ server: HetznerServer; action: HetznerAction }>>('POST', '/servers', {
+  const data = await hetznerApi<ServerResponse>('POST', '/servers', {
     name,
     server_type: serverType,
     image,
@@ -118,25 +127,25 @@ export async function createServer(
     { serverId: data.server.id, name, serverType, location },
     'Created Hetzner server',
   );
-  return data;
+  return { server: data.server, action: data.action };
 }
 
 /** Get server status. */
 export async function getServer(serverId: number): Promise<HetznerServer> {
-  const data = await hetznerApi<HetznerResponse<HetznerServer>>('GET', `/servers/${serverId}`);
+  const data = await hetznerApi<ServerGetResponse>('GET', `/servers/${serverId}`);
   return data.server;
 }
 
 /** Delete a server. */
 export async function deleteServer(serverId: number): Promise<HetznerAction> {
-  const data = await hetznerApi<HetznerResponse<HetznerAction>>('DELETE', `/servers/${serverId}`);
+  const data = await hetznerApi<DeleteResponse>('DELETE', `/servers/${serverId}`);
   logger.info({ serverId }, 'Deleted Hetzner server');
   return data.action;
 }
 
 /** Get action status. */
 export async function getAction(actionId: number): Promise<HetznerAction> {
-  const data = await hetznerApi<HetznerResponse<HetznerAction>>('GET', `/actions/${actionId}`);
+  const data = await hetznerApi<ActionResponse>('GET', `/actions/${actionId}`);
   return data.action;
 }
 

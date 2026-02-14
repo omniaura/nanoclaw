@@ -8,7 +8,6 @@
  */
 
 import crypto from 'crypto';
-import { generateKeyPairSync } from 'crypto';
 
 import {
   B2_ACCESS_KEY_ID,
@@ -51,7 +50,6 @@ class HetznerProcessWrapper implements ContainerProcess {
 
 interface HetznerServerContext {
   serverId: number;
-  sshKeyId: number;
 }
 
 export class HetznerBackend implements AgentBackend {
@@ -65,6 +63,10 @@ export class HetznerBackend implements AgentBackend {
     onProcess: (proc: ContainerProcess, containerName: string) => void,
     onOutput?: (output: ContainerOutput) => Promise<void>,
   ): Promise<ContainerOutput> {
+    if (!this.s3) {
+      return { status: 'error', result: null, error: 'Hetzner backend not initialized (missing credentials)' };
+    }
+
     const folder = getFolder(group);
     const groupName = getName(group);
     const containerCfg = getContainerConfig(group);
@@ -151,7 +153,7 @@ export class HetznerBackend implements AgentBackend {
       }
 
       logger.warn({ group: groupName, timeout: configTimeout }, 'Hetzner agent timed out waiting for S3 outbox');
-      return lastOutput;
+      return { status: 'error', result: lastOutput.result, error: `Agent timed out after ${configTimeout}ms` };
     } finally {
       // 6. Always destroy VM (ephemeral!)
       await this.destroyEphemeralServer(folder);
@@ -161,33 +163,20 @@ export class HetznerBackend implements AgentBackend {
   private async createEphemeralServer(agentId: string): Promise<HetznerServerContext> {
     const serverName = `nanoclaw-${agentId}-${Date.now()}`;
 
-    // Generate SSH key pair
-    const { publicKey, privateKey } = generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-    });
-
-    // Convert PEM to OpenSSH format for Hetzner
-    const sshPublicKey = this.pemToOpenSSH(publicKey);
-
-    // Upload SSH key
-    const sshKey = await HetznerAPI.createSSHKey(`${serverName}-key`, sshPublicKey);
-
-    // Generate cloud-init user data
+    // No host-side SSH key needed — VMs are fully managed via cloud-init + S3.
+    // If the agent needs git SSH keys, cloud-init generates them on the VM
+    // and the agent can share the pubkey back via S3 outbox.
     const userData = this.generateCloudInit(agentId);
 
-    // Create server
     const { server, action } = await HetznerAPI.createServer(
       serverName,
       HETZNER_SERVER_TYPE,
       HETZNER_IMAGE,
       HETZNER_LOCATION,
-      [sshKey.id],
+      [], // No SSH keys — ephemeral VM, no SSH access needed
       userData,
     );
 
-    // Wait for server to be running
     await HetznerAPI.waitForAction(action.id);
     await HetznerAPI.waitForServerRunning(server.id);
 
@@ -196,10 +185,7 @@ export class HetznerBackend implements AgentBackend {
       'Hetzner ephemeral server ready',
     );
 
-    return {
-      serverId: server.id,
-      sshKeyId: sshKey.id,
-    };
+    return { serverId: server.id };
   }
 
   private async destroyEphemeralServer(agentId: string): Promise<void> {
@@ -211,7 +197,6 @@ export class HetznerBackend implements AgentBackend {
 
     try {
       await HetznerAPI.deleteServer(serverCtx.serverId);
-      await HetznerAPI.deleteSSHKey(serverCtx.sshKeyId);
       logger.info({ serverId: serverCtx.serverId }, 'Destroyed Hetzner ephemeral server');
     } catch (err) {
       logger.warn({ serverId: serverCtx.serverId, error: err }, 'Failed to destroy Hetzner server');
@@ -220,6 +205,19 @@ export class HetznerBackend implements AgentBackend {
     }
   }
 
+  /**
+   * Generate cloud-init user-data for ephemeral Hetzner VMs.
+   *
+   * The VM generates its own SSH key for git operations via ssh-keygen.
+   * The agent can share its pubkey back to the user via S3 outbox.
+   *
+   * NOTE: B2/S3 credentials are embedded in the cloud-init script. This is acceptable
+   * for ephemeral VMs that are destroyed after each agent run, but be aware that:
+   * - Credentials may be visible in Hetzner Cloud console (server details)
+   * - Credentials persist in VM logs (/var/log/cloud-init.log) until VM destruction
+   * For higher-security deployments, consider using scoped/temporary B2 application keys
+   * with limited bucket permissions and short TTLs.
+   */
   private generateCloudInit(agentId: string): string {
     return `#cloud-config
 package_update: true
@@ -232,8 +230,11 @@ packages:
 runcmd:
   - systemctl start docker
   - systemctl enable docker
+  - ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" -C "nanoclaw-${agentId}"
+  - ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
   - docker pull ${CONTAINER_IMAGE}
   - docker run -d --name nanoclaw-agent \\
+      -v /root/.ssh:/home/bun/.ssh:ro \\
       -e NANOCLAW_S3_ENDPOINT=${B2_ENDPOINT} \\
       -e NANOCLAW_S3_REGION=${B2_REGION} \\
       -e NANOCLAW_S3_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID} \\
@@ -242,18 +243,6 @@ runcmd:
       -e NANOCLAW_AGENT_ID=${agentId} \\
       ${CONTAINER_IMAGE}
 `;
-  }
-
-  private pemToOpenSSH(pemPublicKey: string): string {
-    // Extract base64 data from PEM
-    const lines = pemPublicKey.split('\n').filter(line =>
-      !line.startsWith('-----BEGIN') && !line.startsWith('-----END') && line.trim()
-    );
-    const base64Data = lines.join('');
-
-    // For simplicity, we'll use a basic OpenSSH format
-    // In production, you'd want a proper PEM -> OpenSSH converter
-    return `ssh-rsa ${base64Data} nanoclaw-generated-key`;
   }
 
   sendMessage(groupFolder: string, text: string): boolean {
@@ -328,5 +317,17 @@ runcmd:
     });
 
     logger.info('Hetzner backend initialized with S3 storage');
+  }
+
+  async shutdown(): Promise<void> {
+    for (const [agentId, serverCtx] of this.servers) {
+      try {
+        await HetznerAPI.deleteServer(serverCtx.serverId);
+        logger.info({ serverId: serverCtx.serverId }, 'Cleaned up Hetzner server during shutdown');
+      } catch (err) {
+        logger.warn({ serverId: serverCtx.serverId, error: err }, 'Failed to cleanup Hetzner server during shutdown');
+      }
+    }
+    this.servers.clear();
   }
 }
