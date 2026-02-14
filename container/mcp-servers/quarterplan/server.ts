@@ -56,8 +56,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           id: { type: 'string' },
-          status: { type: 'string', enum: ['planning', 'in-progress', 'completed', 'blocked'] },
+          status: { type: 'string', enum: ['planning', 'in-progress', 'completed', 'blocked', 'archived'] },
           description: { type: 'string' },
+          owner: { type: 'string' },
           target_date: { type: 'string' },
           tags: { type: 'array', items: { type: 'string' } },
         },
@@ -131,14 +132,46 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'update_initiative': {
         const plan = await quarterplan.getQuarterPlan();
         const initiative = plan.initiatives.find((i) => i.id === args.id);
-        if (!initiative) return { content: [{ type: 'text', text: `Initiative ${args.id} not found` }], isError: true };
-        if (args.status) initiative.status = args.status as any;
-        if (args.description) initiative.description = args.description as string;
-        if (args.target_date) initiative.target_date = args.target_date as string;
-        if (args.tags) initiative.tags = args.tags as string[];
+        if (!initiative) {
+          const availableIds = plan.initiatives.map(i => i.id).join(', ');
+          return {
+            content: [{
+              type: 'text',
+              text: `Error: Initiative "${args.id}" not found.\n\nAvailable initiative IDs:\n${availableIds || 'No initiatives exist yet'}\n\nTip: Use get_quarter_plan() to see all initiatives.`
+            }],
+            isError: true
+          };
+        }
+
+        // Track what changed for better logging
+        const changes: string[] = [];
+
+        if (args.status && args.status !== initiative.status) {
+          initiative.status = args.status as any;
+          changes.push(`status: ${args.status}`);
+        }
+        if (args.description && args.description !== initiative.description) {
+          initiative.description = args.description as string;
+          changes.push('description updated');
+        }
+        if (args.owner && args.owner !== initiative.owner) {
+          initiative.owner = args.owner as string;
+          changes.push(`owner: ${args.owner}`);
+        }
+        if (args.target_date && args.target_date !== initiative.target_date) {
+          initiative.target_date = args.target_date as string;
+          changes.push(`target_date: ${args.target_date}`);
+        }
+        if (args.tags) {
+          initiative.tags = args.tags as string[];
+          changes.push(`tags: [${args.tags.join(', ')}]`);
+        }
+
         initiative.updated = new Date().toISOString();
         await quarterplan.saveQuarterPlan(plan);
-        return { content: [{ type: 'text', text: JSON.stringify(initiative, null, 2) }] };
+
+        const changeLog = changes.length > 0 ? `\n\nChanges: ${changes.join(', ')}` : '\n\nNo changes made.';
+        return { content: [{ type: 'text', text: JSON.stringify(initiative, null, 2) + changeLog }] };
       }
       case 'link_pr': {
         const plan = await quarterplan.getQuarterPlan();
@@ -175,8 +208,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     }
   } catch (error) {
-    console.error('Tool execution error:', error);
-    return { content: [{ type: 'text', text: `Error executing tool: ${name}` }], isError: true };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error(`Tool execution error (${name}):`, error);
+
+    // Provide actionable error messages
+    let userMessage = `Error executing "${name}":\n${errorMessage}`;
+
+    // Add specific guidance for common errors
+    if (errorMessage.includes('S3') || errorMessage.includes('AccessDenied')) {
+      userMessage += '\n\nTroubleshooting:\n- Check S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are set\n- Verify bucket permissions (omniaura-agents)\n- Check network connectivity to S3 endpoint';
+    } else if (errorMessage.includes('JSON')) {
+      userMessage += '\n\nTroubleshooting:\n- S3 data may be corrupted\n- Try reading quarterplan/initiatives.json manually\n- Check S3 bucket for valid JSON format';
+    }
+
+    if (errorStack) {
+      console.error('Stack trace:', errorStack);
+    }
+
+    return { content: [{ type: 'text', text: userMessage }], isError: true };
   }
 });
 
