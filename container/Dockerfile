@@ -3,14 +3,25 @@
 
 FROM oven/bun:slim
 
-# Install Node.js (agents expect node/npm/npx to be available alongside bun)
-# and essential system tools
+# Install Node.js (agents expect node/npm/npx to be available alongside bun),
+# Go (for working with Go repositories), and essential system tools
 RUN apt-get update && apt-get install -y \
     nodejs \
     npm \
     curl \
     git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.25 (latest stable)
+RUN wget -q https://go.dev/dl/go1.25.0.linux-arm64.tar.gz \
+    && tar -C /usr/local -xzf go1.25.0.linux-arm64.tar.gz \
+    && rm go1.25.0.linux-arm64.tar.gz
+
+# Add Go to PATH for all users
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/workspace/go"
+ENV GOBIN="/workspace/go/bin"
 
 # Install GitHub CLI for PR creation and git authentication
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
