@@ -10,6 +10,7 @@
 import crypto from 'crypto';
 
 import {
+  ASSISTANT_NAME,
   B2_ACCESS_KEY_ID,
   B2_BUCKET,
   B2_ENDPOINT,
@@ -161,7 +162,8 @@ export class HetznerBackend implements AgentBackend {
   }
 
   private async createEphemeralServer(agentId: string): Promise<HetznerServerContext> {
-    const serverName = `nanoclaw-${agentId}-${Date.now()}`;
+    const appName = ASSISTANT_NAME.toLowerCase();
+    const serverName = `${appName}-${agentId}-${Date.now()}`;
 
     // No host-side SSH key needed — VMs are fully managed via cloud-init + S3.
     // If the agent needs git SSH keys, cloud-init generates them on the VM
@@ -177,8 +179,18 @@ export class HetznerBackend implements AgentBackend {
       userData,
     );
 
-    await HetznerAPI.waitForAction(action.id);
-    await HetznerAPI.waitForServerRunning(server.id);
+    try {
+      await HetznerAPI.waitForAction(action.id);
+      await HetznerAPI.waitForServerRunning(server.id);
+    } catch (err) {
+      // Best-effort cleanup to avoid orphaned VMs
+      try {
+        await HetznerAPI.deleteServer(server.id);
+      } catch (cleanupErr) {
+        logger.warn({ serverId: server.id, error: cleanupErr }, 'Failed to cleanup server after create failure');
+      }
+      throw err;
+    }
 
     logger.info(
       { serverId: server.id, serverName, ip: server.public_net.ipv4.ip },
@@ -219,6 +231,7 @@ export class HetznerBackend implements AgentBackend {
    * with limited bucket permissions and short TTLs.
    */
   private generateCloudInit(agentId: string): string {
+    const appName = ASSISTANT_NAME.toLowerCase();
     return `#cloud-config
 package_update: true
 package_upgrade: true
@@ -230,10 +243,10 @@ packages:
 runcmd:
   - systemctl start docker
   - systemctl enable docker
-  - ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" -C "nanoclaw-${agentId}"
+  - ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" -C "${appName}-${agentId}"
   - ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
   - docker pull ${CONTAINER_IMAGE}
-  - docker run -d --name nanoclaw-agent \\
+  - docker run -d --name ${appName}-agent \\
       -v /root/.ssh:/home/bun/.ssh:ro \\
       -e NANOCLAW_S3_ENDPOINT=${B2_ENDPOINT} \\
       -e NANOCLAW_S3_REGION=${B2_REGION} \\
