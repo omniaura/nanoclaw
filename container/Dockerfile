@@ -13,7 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     openssh-client \
     jq \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
+
+# Install yq (YAML processor, like jq for YAML)
+RUN ARCH="$(dpkg --print-architecture)" \
+    && wget -q "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -O /usr/bin/yq \
+    && chmod +x /usr/bin/yq
 
 # Install Go (latest stable version) - cross-platform support
 ARG GO_VERSION=1.25.0
