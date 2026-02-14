@@ -1,0 +1,17 @@
+{
+  "name": "quarterplan-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "mcp": "bun mcp-quarterplan-server.ts",
+    "test-s3": "bun s3-client.ts test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@aws-sdk/client-s3": "^3.990.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.3"
+  }
+}
