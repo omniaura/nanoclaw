@@ -106,7 +106,7 @@ The script includes several safety features:
 
 ## Go Installation
 
-The updated Dockerfile now includes Go (version 1.23.5) with the following setup:
+The updated Dockerfile now includes Go (version 1.25.0) with the following setup:
 
 - **Go binary**: `/usr/local/go/bin/go`
 - **GOPATH**: `/home/bun/go`

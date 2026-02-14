@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go (latest stable version)
-ARG GO_VERSION=1.23.5
+ARG GO_VERSION=1.25.0
 RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-arm64.tar.gz \
     && tar -C /usr/local -xzf go${GO_VERSION}.linux-arm64.tar.gz \
     && rm go${GO_VERSION}.linux-arm64.tar.gz
