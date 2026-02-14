@@ -284,6 +284,35 @@ export class DiscordChannel implements Channel {
       }
     }
 
+    // Resolve all remaining <@USER_ID> mentions to display names so the agent
+    // knows who is being referenced. Uses server nickname > global display name > username.
+    if (message.mentions.members?.size) {
+      for (const [id, member] of message.mentions.members) {
+        if (id === botId) continue; // Already handled above
+        const name = member.displayName || member.user.displayName || member.user.username;
+        content = content.replace(new RegExp(`<@!?${id}>`, 'g'), `@${name}`);
+      }
+    } else if (message.mentions.users?.size) {
+      // Fallback for DMs or when member data isn't available
+      for (const [id, user] of message.mentions.users) {
+        if (id === botId) continue;
+        const name = user.displayName || user.username;
+        content = content.replace(new RegExp(`<@!?${id}>`, 'g'), `@${name}`);
+      }
+    }
+    // Resolve <@&ROLE_ID> role mentions and <#CHANNEL_ID> channel mentions
+    if (message.mentions.roles?.size) {
+      for (const [id, role] of message.mentions.roles) {
+        content = content.replace(new RegExp(`<@&${id}>`, 'g'), `@${role.name}`);
+      }
+    }
+    if (message.mentions.channels?.size) {
+      for (const [id, ch] of message.mentions.channels) {
+        const name = 'name' in ch ? (ch as TextChannel).name : id;
+        content = content.replace(new RegExp(`<#${id}>`, 'g'), `#${name}`);
+      }
+    }
+
     // Allow bot messages through only if they contain our trigger (agent-to-agent comms).
     // This prevents infinite loops — bots must explicitly @mention us.
     if (message.author.bot && !TRIGGER_PATTERN.test(content)) return;
