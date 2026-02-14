@@ -8,7 +8,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { SharedS3Client, QuarterPlanSync, type Initiative } from '../../../src/shared/index.js';
+import { SharedS3Client, QuarterPlanSync, type Initiative } from '../../shared/index.js';
 import { Effect, Schedule, pipe } from 'effect';
 
 // Validate required environment variables

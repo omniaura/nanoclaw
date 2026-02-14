@@ -60,6 +60,7 @@ import { startS3IpcPoller } from './s3/ipc-poller.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
 import { Agent, Channel, ChannelRoute, NewMessage, RegisteredGroup, registeredGroupToAgent, registeredGroupToRoute } from './types.js';
+import { findMainGroupJid } from './group-helpers.js';
 import { logger } from './logger.js';
 
 // Re-export for backwards compatibility during refactor
@@ -572,6 +573,8 @@ async function startMessageLoop(): Promise<void> {
             lastAgentTimestamp[chatJid] =
               messagesToSend[messagesToSend.length - 1].timestamp;
             saveState();
+            // Show typing indicator while the container processes the piped message
+            whatsapp.setTyping(chatJid, true);
           } else {
             // No active container — enqueue for a new one
             queue.enqueueMessageCheck(chatJid);
@@ -727,9 +730,7 @@ async function main(): Promise<void> {
       if (!request) return; // Not a tracked share request
 
       // Find the main group's JID
-      const mainJid = Object.entries(registeredGroups).find(
-        ([, g]) => g.folder === MAIN_GROUP_FOLDER,
-      )?.[0];
+      const mainJid = findMainGroupJid(registeredGroups);
       if (!mainJid) return;
 
       logger.info(
