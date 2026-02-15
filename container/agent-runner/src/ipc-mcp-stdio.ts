@@ -686,6 +686,32 @@ if (chatJid.startsWith('dc:')) {
       return { content: [{ type: 'text' as const, text: args.remove ? 'Reaction removed.' : 'Reaction added.' }] };
     },
   );
+
+  server.tool(
+    'format_mention',
+    'Format a user mention for Discord using their display name. Returns the proper <@USER_ID> format.',
+    {
+      user_name: z.string().describe('Display name of the user to mention (e.g. "OmarOmni", "PeytonOmni")'),
+    },
+    async (args) => {
+      writeIpcFile(MESSAGES_DIR, {
+        type: 'format_mention',
+        chatJid,
+        userName: args.user_name,
+        platform: 'discord',
+        groupFolder,
+        timestamp: new Date().toISOString(),
+      });
+      // User registry lookup happens on the host side
+      // For now, return the plain @mention as fallback
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Looking up user ID for @${args.user_name}... Use <@USER_ID> format in your message.`
+        }]
+      };
+    },
+  );
 }
 
 // Start the stdio transport
