@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     jq \
     ripgrep \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install yq (YAML processor, like jq for YAML)
@@ -32,6 +33,7 @@ RUN ARCH="$(dpkg --print-architecture)" \
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/home/bun/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
+ENV CGO_ENABLED=1
 
 # Install just command runner (required for ditto backend development)
 ARG JUST_VERSION=1.46.0
