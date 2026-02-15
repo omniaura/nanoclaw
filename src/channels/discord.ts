@@ -347,7 +347,15 @@ export class DiscordChannel implements Channel {
     // In guild channels, only process messages that mention THIS bot OR reply to the bot.
     // Prevents responding when another agent (e.g. @PeytonOmni) is mentioned instead.
     const isReplyToBot = message.mentions.repliedUser?.id === botId;
-    if (!isDM && botId && !message.mentions.users.has(botId) && !isReplyToBot) return;
+    // Only block if message mentions other users but NOT this bot.
+    // Messages with NO mentions pass through to auto-respond check below.
+    const mentionsOtherUsersOnly = message.mentions.users.size > 0
+      && !message.mentions.users.has(botId)
+      && !isReplyToBot;
+    if (!isDM && botId && mentionsOtherUsersOnly) {
+      logger.debug({ chatJid: `dc:${message.channelId}`, sender: message.author.username }, 'Ignoring message mentioning other users');
+      return;
+    }
 
     const chatJid = isDM
       ? `dc:dm:${message.author.id}`
@@ -417,8 +425,11 @@ export class DiscordChannel implements Channel {
     // Smart auto-respond: check if we should respond without explicit mention
     const hasTrigger = TRIGGER_PATTERN.test(content);
     if (!hasTrigger && !isDM) {
-      // Not a DM and no trigger — check if auto-respond is enabled
-      if (this.shouldAutoRespond(content, group)) {
+      if (isReplyToBot) {
+        // Reply to bot = treat as triggered
+        logger.info({ chatJid, sender: senderName }, 'Reply to bot — treating as triggered');
+        content = `@${ASSISTANT_NAME} ${content}`;
+      } else if (this.shouldAutoRespond(content, group)) {
         logger.debug(
           { chatJid, autoRespondToQuestions: group.autoRespondToQuestions, autoRespondKeywords: group.autoRespondKeywords },
           'Auto-responding based on group config',
