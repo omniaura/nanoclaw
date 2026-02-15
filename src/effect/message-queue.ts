@@ -261,21 +261,36 @@ export const makeMessageQueue = (
         // Send with retry and timeout
         const result = yield* _(
           sendMessageCore(groupJid, text, backend, groupFolder).pipe(
-            // Only retry if error is retryable
+            // Inspect errors before retry: convert non-retryable to defect
             Effect.catchAll((error) => {
               if (error._tag === 'MessageSendError' && !error.retryable) {
-                // Non-retryable errors should fail immediately
+                // Non-retryable errors become defects (won't be retried)
                 logger.error(
                   { groupJid, error: error.reason },
                   'Message send failed (non-retryable)',
                 );
-                return Effect.fail(error);
+                return Effect.die(error); // Die = unrecoverable defect
               }
-              // Retryable errors get retried
+              // Retryable errors get re-thrown for retry
               return Effect.fail(error);
             }),
             Effect.retry(retrySchedule),
             Effect.timeout(config.sendTimeoutMs),
+            // Catch defects (non-retryable) and convert back to typed failure
+            Effect.catchAllDefect((defect) => {
+              if (typeof defect === 'object' && defect !== null && '_tag' in defect && defect._tag === 'MessageSendError') {
+                return Effect.fail(defect as MessageSendError);
+              }
+              // Unknown defect
+              logger.error({ groupJid, defect }, 'Unknown defect in message send');
+              return Effect.fail(
+                new MessageSendError({
+                  groupJid,
+                  reason: `Unknown defect: ${defect}`,
+                  retryable: false,
+                }),
+              );
+            }),
             Effect.catchAll((error) => {
               if (error._tag === 'MessageSendError') {
                 logger.error(
