@@ -116,9 +116,9 @@ export function startIpcWatcher(deps: IpcDeps): void {
               if (data.type === 'react_to_message' && data.chatJid && data.messageId && data.emoji) {
                 const ch = deps.findChannel?.(data.chatJid);
                 if (data.remove) {
-                  await ch?.removeReaction?.(data.chatJid, data.messageId, data.emoji);
+                  await (ch?.removeReaction?.(data.chatJid, data.messageId, data.emoji) ?? Promise.resolve());
                 } else {
-                  await ch?.addReaction?.(data.chatJid, data.messageId, data.emoji);
+                  await (ch?.addReaction?.(data.chatJid, data.messageId, data.emoji) ?? Promise.resolve());
                 }
                 logger.info(
                   { chatJid: data.chatJid, messageId: data.messageId, emoji: data.emoji, remove: !!data.remove, sourceGroup },
