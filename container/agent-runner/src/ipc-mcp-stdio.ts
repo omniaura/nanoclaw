@@ -206,7 +206,7 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
 
 server.tool(
   'list_tasks',
-  "List all scheduled tasks. From main: shows all tasks. From other groups: shows only that group's tasks.",
+  "List scheduled tasks for the current context.",
   {},
   async () => {
     const tasksFile = path.join(IPC_DIR, groupFolder, 'current_tasks.json');
