@@ -116,18 +116,21 @@ unmount-workspaces group="main":
 # Usage: just enable-project-access [group_folder]  (default: main)
 enable-project-access group="main":
     #!/usr/bin/env bash
+    set -e
     DB="store/messages.db"
     if [ ! -f "$DB" ]; then
         echo "Database not found at $DB"
         exit 1
     fi
+    # Escape single quotes for SQL safety
+    ESCAPED_GROUP=$(echo "{{group}}" | sed "s/'/''/g")
     ROWS=$(sqlite3 "$DB" "
     UPDATE registered_groups
     SET container_config = json_set(
         COALESCE(container_config, '{}'),
         '$.projectAccess', 1
     )
-    WHERE folder = '{{group}}';
+    WHERE folder = '$ESCAPED_GROUP';
     SELECT changes();
     ")
     if [ "$ROWS" -gt 0 ]; then
@@ -141,18 +144,21 @@ enable-project-access group="main":
 # Usage: just enable-ditto-mcp [group_folder]  (default: main)
 enable-ditto-mcp group="main":
     #!/usr/bin/env bash
+    set -e
     DB="store/messages.db"
     if [ ! -f "$DB" ]; then
         echo "Database not found at $DB"
         exit 1
     fi
+    # Escape single quotes for SQL safety
+    ESCAPED_GROUP=$(echo "{{group}}" | sed "s/'/''/g")
     sqlite3 "$DB" "
     UPDATE registered_groups
     SET container_config = json_set(
         COALESCE(container_config, '{}'),
         '$.dittoMcpEnabled', 1
     )
-    WHERE folder = '{{group}}';
+    WHERE folder = '$ESCAPED_GROUP';
     "
     ROWS=$(sqlite3 "$DB" "SELECT changes();")
     if [ "$ROWS" -gt 0 ]; then
