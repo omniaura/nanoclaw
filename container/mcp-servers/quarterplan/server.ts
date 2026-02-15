@@ -113,7 +113,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'list_initiatives',
-      description: 'List initiatives with minimal detail (id, title, owner, status) - use this for browsing, then get_initiative for full details',
+      description: 'List initiatives with minimal detail (id, title, owner, status, target_date) - use this for browsing, then get_initiative for full details',
       inputSchema: {
         type: 'object',
         properties: {
@@ -299,7 +299,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const initiatives = await Effect.runPromise(listEffect);
         const summary = `Found ${initiatives.length} initiative(s)\n\n` +
-                       initiatives.map(i => `• ${i.id}: "${i.title}" (${i.owner}, ${i.status})`).join('\n');
+                       initiatives.map(i => {
+                         const target = i.target_date ? `, target: ${i.target_date}` : '';
+                         return `• ${i.id}: "${i.title}" (${i.owner}, ${i.status}${target})`;
+                       }).join('\n');
         return {
           content: [{
             type: 'text',
