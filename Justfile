@@ -60,6 +60,54 @@ stop:
     echo "NanoClaw stopped"
 
 
+# Disable project access (unmount /workspace/project) for a group.
+# Usage: just disable-project-access [group_folder]  (default: main)
+disable-project-access group="main":
+    #!/usr/bin/env bash
+    set -e
+    DB="store/messages.db"
+    if [ ! -f "$DB" ]; then
+        echo "Database not found at $DB"
+        exit 1
+    fi
+    ROWS=$(sqlite3 "$DB" "
+    UPDATE registered_groups
+    SET container_config = json_remove(COALESCE(container_config, '{}'), '$.projectAccess')
+    WHERE folder = '{{group}}';
+    SELECT changes();
+    ")
+    if [ "$ROWS" -gt 0 ]; then
+        echo "Project access disabled for {{group}}. Restart NanoClaw: just restart"
+    else
+        echo "Group '{{group}}' not found in registered_groups."
+        exit 1
+    fi
+
+# Unmount additional workspaces (additionalMounts) for a group.
+# Removes host paths like ~/code/ditto-app from container_config so agents
+# no longer see them at /workspace/extra/*. Agents can clone their own repos instead.
+# Usage: just unmount-workspaces [group_folder]  (default: main)
+unmount-workspaces group="main":
+    #!/usr/bin/env bash
+    set -e
+    DB="store/messages.db"
+    if [ ! -f "$DB" ]; then
+        echo "Database not found at $DB"
+        exit 1
+    fi
+    ROWS=$(sqlite3 "$DB" "
+    UPDATE registered_groups
+    SET container_config = json_remove(COALESCE(container_config, '{}'), '$.additionalMounts')
+    WHERE folder = '{{group}}';
+    SELECT changes();
+    ")
+    if [ "$ROWS" -gt 0 ]; then
+        echo "Additional mounts removed for {{group}}. Restart NanoClaw: just restart"
+    else
+        echo "Group '{{group}}' not found in registered_groups."
+        exit 1
+    fi
+
 # Enable project access (mount /workspace/project) for a group.
 # Usage: just enable-project-access [group_folder]  (default: main)
 enable-project-access group="main":
