@@ -43,6 +43,8 @@ export class WhatsAppChannel implements Channel {
   private static readonly MESSAGE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
   // Track IDs of messages we sent so the upsert handler can ignore echoes (self-chat loop fix)
   private sentMessageIds = new Set<string>();
+  // Also track sent text for reply-context lookups (WhatsApp strips quoted body in self-chat)
+  private sentMessageTexts = new Map<string, string>();
   private static readonly SENT_IDS_MAX = 200;
 
   // Store event handlers so they can be removed on reconnect
@@ -226,9 +228,17 @@ export class WhatsAppChannel implements Channel {
 
           // Prepend reply context so the agent knows what's being replied to
           const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
-          if (contextInfo?.quotedMessage) {
-            const quotedText = contextInfo.quotedMessage.conversation
-              || contextInfo.quotedMessage.extendedTextMessage?.text || '';
+          if (contextInfo?.quotedMessage || contextInfo?.stanzaId) {
+            const qm = contextInfo.quotedMessage;
+            let quotedText = qm?.conversation
+              || qm?.extendedTextMessage?.text
+              || qm?.imageMessage?.caption
+              || qm?.videoMessage?.caption
+              || '';
+            // Self-chat: WhatsApp strips quoted body to "". Fall back to our sent message cache.
+            if (!quotedText && contextInfo.stanzaId) {
+              quotedText = this.sentMessageTexts.get(contextInfo.stanzaId) || '';
+            }
             if (quotedText) {
               const truncated = quotedText.length > 200 ? quotedText.slice(0, 200) + '…' : quotedText;
               const quotedSender = contextInfo.participant?.split('@')[0] || 'someone';
@@ -274,10 +284,14 @@ export class WhatsAppChannel implements Channel {
       const sentId = sent?.key?.id;
       if (sentId) {
         this.sentMessageIds.add(sentId);
+        this.sentMessageTexts.set(sentId, text);
         // Prune to avoid unbounded growth
         if (this.sentMessageIds.size > WhatsAppChannel.SENT_IDS_MAX) {
           const first = this.sentMessageIds.values().next().value;
-          if (first) this.sentMessageIds.delete(first);
+          if (first) {
+            this.sentMessageIds.delete(first);
+            this.sentMessageTexts.delete(first);
+          }
         }
       }
       logger.info({ jid, length: text.length }, 'Message sent');
