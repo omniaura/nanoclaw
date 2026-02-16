@@ -614,6 +614,12 @@ export function getRegisteredGroup(
       }
     | undefined;
   if (!row) return undefined;
+
+  // Validate folder name against traversal attacks
+  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(row.folder)) {
+    return undefined;
+  }
+
   return {
     jid: row.jid,
     name: row.name,
@@ -685,6 +691,11 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
   }>;
   const result: Record<string, RegisteredGroup> = {};
   for (const row of rows) {
+    // Validate folder name against traversal attacks
+    if (!/^[a-z0-9][a-z0-9_-]*$/i.test(row.folder)) {
+      continue;
+    }
+
     result[row.jid] = {
       name: row.name,
       folder: row.folder,
