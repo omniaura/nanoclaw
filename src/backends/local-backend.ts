@@ -596,7 +596,9 @@ export class LocalBackend implements AgentBackend {
 
     const probe2 = await $`container run --rm --entrypoint /bin/echo ${CONTAINER_IMAGE} ok`.quiet().nothrow();
     if (probe2.exitCode !== 0 || probe2.text().trim() !== 'ok') {
-      logger.error('Container probe still failing after full restart — containers may not work');
+      logger.error('Container probe still failing after full restart');
+      this.printContainerSystemError();
+      throw new Error('Container system probe failed after restart');
     } else {
       logger.info('Container probe succeeded after full restart');
     }
@@ -606,28 +608,9 @@ export class LocalBackend implements AgentBackend {
 
   private printContainerSystemError(): void {
     console.error(
-      '\n╔════════════════════════════════════════════════════════════════╗',
-    );
-    console.error(
-      '║  FATAL: Apple Container system failed to start                 ║',
-    );
-    console.error(
-      '║                                                                ║',
-    );
-    console.error(
-      '║  Agents cannot run without Apple Container. To fix:           ║',
-    );
-    console.error(
-      '║  1. Install from: https://github.com/apple/container/releases ║',
-    );
-    console.error(
-      '║  2. Run: container system start                               ║',
-    );
-    console.error(
-      '║  3. Restart NanoClaw                                          ║',
-    );
-    console.error(
-      '╚════════════════════════════════════════════════════════════════╝\n',
+      '\nFATAL: Container system failed to start.',
+      '\nRun `container system start` and restart the application.',
+      '\nSee the project README for installation instructions.\n',
     );
   }
 
