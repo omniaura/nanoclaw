@@ -742,6 +742,8 @@ async function main(): Promise<void> {
     sdkEnv[key] = value;
   }
 
+  log(`Model: ${sdkEnv.CLAUDE_MODEL || '(default)'}`);
+
   const mcpServerPath = path.join(import.meta.dir, 'ipc-mcp-stdio.ts');
 
   let sessionId = containerInput.sessionId;
