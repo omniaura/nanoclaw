@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { DATA_DIR, STORE_DIR } from './config.js';
+import { logger } from './logger.js';
 import { Agent, ChannelRoute, HeartbeatConfig, NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog, registeredGroupToAgent, registeredGroupToRoute } from './types.js';
 
 let db: Database;
@@ -617,6 +618,10 @@ export function getRegisteredGroup(
 
   // Validate folder name against traversal attacks
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(row.folder)) {
+    logger.warn(
+      { jid, folder: row.folder },
+      'Invalid folder name in database for registered group',
+    );
     return undefined;
   }
 
@@ -693,6 +698,10 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
   for (const row of rows) {
     // Validate folder name against traversal attacks
     if (!/^[a-z0-9][a-z0-9_-]*$/i.test(row.folder)) {
+      logger.warn(
+        { jid: row.jid, folder: row.folder },
+        'Invalid folder name in database for registered group',
+      );
       continue;
     }
 

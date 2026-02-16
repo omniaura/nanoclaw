@@ -125,7 +125,7 @@ function buildVolumeMounts(
   const groupSessionsDir = path.join(sessionsBase, folder, '.claude');
   assertPathWithin(groupSessionsDir, sessionsBase, 'sessions directory');
 
-  fs.mkdirSync(groupSessionsDir, { recursive: true});
+  fs.mkdirSync(groupSessionsDir, { recursive: true });
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({
