@@ -2,7 +2,6 @@ import { ASSISTANT_NAME } from './config.js';
 import { Channel, NewMessage } from './types.js';
 
 export function escapeXml(s: string): string {
-  if (!s) return '';
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
