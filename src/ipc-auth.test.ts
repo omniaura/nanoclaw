@@ -593,6 +593,6 @@ describe('register_group success', () => {
       deps,
     );
 
-    expect(getRegisteredGroup('partial@g.us')).toBeNull();
+    expect(getRegisteredGroup('partial@g.us')).toBeUndefined();
   });
 });
