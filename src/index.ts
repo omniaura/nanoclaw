@@ -368,7 +368,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   const missedMessages = getMessagesSince(
     chatJid,
     sinceTimestamp,
-  );
+  ).filter((m) => m.content.trim().length > 0);
 
   if (missedMessages.length === 0) return true;
 
