@@ -78,23 +78,35 @@ export const makeUserRegistryService = Effect.gen(function* (_) {
   const registryRef = yield* _(Ref.make<UserRegistry>({}));
 
   const normalizeKey = (name: string) => name.toLowerCase().trim();
+  const idKey = (user: UserInfo) => `${user.platform}:${user.id}`;
+  const nameKey = (user: UserInfo) =>
+    `${user.platform}:name:${normalizeKey(user.name)}`;
 
   const getUser = (
     name: string,
   ): Effect.Effect<UserInfo | null, UserRegistryError> =>
     Effect.gen(function* (_) {
       const registry = yield* _(Ref.get(registryRef));
-      const key = normalizeKey(name);
-      return registry[key] || null;
+      const normalized = normalizeKey(name);
+
+      // Scan registry for a matching user by normalized name
+      // (registry is keyed by composite keys, so we need to search values)
+      return (
+        Object.values(registry).find(
+          (user) => normalizeKey(user.name) === normalized,
+        ) ?? null
+      );
     });
 
   const upsertUser = (user: UserInfo): Effect.Effect<void, UserRegistryError> =>
     Effect.gen(function* (_) {
-      const key = normalizeKey(user.name);
+      const updated = { ...user, lastSeen: new Date().toISOString() };
       yield* _(
         Ref.update(registryRef, (registry) => ({
           ...registry,
-          [key]: { ...user, lastSeen: new Date().toISOString() },
+          // Store both keys: platform:id (primary) and platform:name:... (secondary)
+          [idKey(user)]: updated,
+          [nameKey(user)]: updated,
         })),
       );
     });
@@ -123,7 +135,10 @@ export const makeUserRegistryService = Effect.gen(function* (_) {
           Effect.tryPromise({
             try: () => mkdir(dir, { recursive: true }),
             catch: (error) =>
-              new UserRegistryError('Failed to create registry directory', error),
+              new UserRegistryError(
+                'Failed to create registry directory',
+                error,
+              ),
           }),
         );
       }
