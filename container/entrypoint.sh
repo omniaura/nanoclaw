@@ -23,7 +23,7 @@ if [ -n "$GITHUB_TOKEN" ]; then
   # Authenticate Graphite CLI if available and not already authenticated
   if command -v gt &> /dev/null; then
     if ! gt auth status &> /dev/null; then
-      echo "$GITHUB_TOKEN" | gt auth --token - 2>/dev/null || true
+      gt auth --token "$GITHUB_TOKEN" 2>/dev/null || true
     fi
   fi
 fi
