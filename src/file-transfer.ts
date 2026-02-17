@@ -40,7 +40,7 @@ export async function transferFiles(
   for (const file of req.files) {
     try {
       const content = await fromBackend.readFile(from.folder, file);
-      if (!content) {
+      if (content == null) {
         errors.push(`File not found: ${file}`);
         continue;
       }
@@ -63,7 +63,14 @@ export async function transferFiles(
       const msg = `Failed to transfer ${file}: ${err instanceof Error ? err.message : String(err)}`;
       errors.push(msg);
       logger.warn(
-        { file, from: from.folder, to: to.folder, error: err },
+        {
+          file,
+          from: from.folder,
+          to: to.folder,
+          fromBackend: fromBackend.name,
+          toBackend: toBackend.name,
+          error: err,
+        },
         'File transfer failed',
       );
     }

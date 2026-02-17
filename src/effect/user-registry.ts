@@ -3,6 +3,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
+import { DATA_DIR } from '../config.js';
+
 /**
  * User information for cross-platform mentions.
  * Populated at runtime from message activity.
@@ -66,7 +68,7 @@ export const UserRegistryService = Context.GenericTag<UserRegistryService>(
   'UserRegistryService',
 );
 
-const REGISTRY_PATH = '/workspace/ipc/user_registry.json';
+const REGISTRY_PATH = join(DATA_DIR, 'ipc', 'user_registry.json');
 
 /**
  * Create the user registry service implementation
@@ -109,43 +111,43 @@ export const makeUserRegistryService = Effect.gen(function* (_) {
 
   const load = (): Effect.Effect<void, UserRegistryError> =>
     Effect.gen(function* (_) {
-      try {
-        // Ensure directory exists
-        const dir = join(REGISTRY_PATH, '..');
-        if (!existsSync(dir)) {
-          yield* _(Effect.promise(() => mkdir(dir, { recursive: true })));
-        }
-
-        // Load registry if it exists
-        if (existsSync(REGISTRY_PATH)) {
-          const data = yield* _(
-            Effect.promise(() => readFile(REGISTRY_PATH, 'utf-8')),
-          );
-          const registry = JSON.parse(data) as UserRegistry;
-          yield* _(Ref.set(registryRef, registry));
-        }
-      } catch (error) {
-        return yield* _(
-          Effect.fail(
-            new UserRegistryError('Failed to load user registry', error),
-          ),
+      // Ensure directory exists
+      const dir = join(REGISTRY_PATH, '..');
+      if (!existsSync(dir)) {
+        yield* _(
+          Effect.tryPromise({
+            try: () => mkdir(dir, { recursive: true }),
+            catch: (error) =>
+              new UserRegistryError('Failed to create registry directory', error),
+          }),
         );
+      }
+
+      // Load registry if it exists
+      if (existsSync(REGISTRY_PATH)) {
+        const data = yield* _(
+          Effect.tryPromise({
+            try: () => readFile(REGISTRY_PATH, 'utf-8'),
+            catch: (error) =>
+              new UserRegistryError('Failed to load user registry', error),
+          }),
+        );
+        const registry = JSON.parse(data) as UserRegistry;
+        yield* _(Ref.set(registryRef, registry));
       }
     });
 
   const save = (): Effect.Effect<void, UserRegistryError> =>
     Effect.gen(function* (_) {
-      try {
-        const registry = yield* _(Ref.get(registryRef));
-        const data = JSON.stringify(registry, null, 2);
-        yield* _(Effect.promise(() => writeFile(REGISTRY_PATH, data, 'utf-8')));
-      } catch (error) {
-        return yield* _(
-          Effect.fail(
+      const registry = yield* _(Ref.get(registryRef));
+      const data = JSON.stringify(registry, null, 2);
+      yield* _(
+        Effect.tryPromise({
+          try: () => writeFile(REGISTRY_PATH, data, 'utf-8'),
+          catch: (error) =>
             new UserRegistryError('Failed to save user registry', error),
-          ),
-        );
-      }
+        }),
+      );
     });
 
   return {
