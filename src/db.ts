@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite';
 import fs from 'fs';
 import path from 'path';
 
-import { DATA_DIR, STORE_DIR } from './config.js';
+import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
 import { logger } from './logger.js';
 import { Agent, ChannelRoute, HeartbeatConfig, NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog, registeredGroupToAgent, registeredGroupToRoute } from './types.js';
 
@@ -23,6 +23,7 @@ function createSchema(database: Database): void {
       content TEXT,
       timestamp TEXT,
       is_from_me INTEGER,
+      is_bot_message INTEGER DEFAULT 0,
       PRIMARY KEY (id, chat_jid),
       FOREIGN KEY (chat_jid) REFERENCES chats(jid)
     );
@@ -121,6 +122,17 @@ function createSchema(database: Database): void {
   try {
     database.exec(`ALTER TABLE registered_groups ADD COLUMN description TEXT`);
   } catch { /* column already exists */ }
+
+  // Add is_bot_message column to messages (upstream sync)
+  try {
+    database.exec(`ALTER TABLE messages ADD COLUMN is_bot_message INTEGER DEFAULT 0`);
+    // Backfill: mark existing bot messages that used the content prefix pattern
+    database.prepare(
+      `UPDATE messages SET is_bot_message = 1 WHERE content LIKE ?`,
+    ).run(`${ASSISTANT_NAME}:%`);
+  } catch {
+    /* column already exists */
+  }
 
   // Add auto-respond columns to registered_groups
   try {
@@ -289,7 +301,7 @@ export function setLastGroupSync(): void {
  */
 export function storeMessage(msg: NewMessage): void {
   db.query(
-    `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     msg.id,
     msg.chat_jid,
@@ -298,6 +310,7 @@ export function storeMessage(msg: NewMessage): void {
     msg.content,
     msg.timestamp,
     msg.is_from_me ? 1 : 0,
+    msg.is_bot_message ? 1 : 0,
   );
 }
 
@@ -314,12 +327,13 @@ export function storeMessageDirect(msg: {
   is_from_me: boolean;
   sender_user_id?: string; // Platform-specific user ID (Issue #66)
   mentions?: Array<{ id: string; name: string; platform: string }>; // User mentions (Issue #66)
+  is_bot_message?: boolean;
 }): void {
   // For now, store core fields only. Metadata (sender_user_id, mentions) will be
   // used by in-memory user registry but not persisted to DB until schema migration.
   // TODO: Add DB migration to persist user metadata fields
   db.query(
-    `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     msg.id,
     msg.chat_jid,
@@ -328,6 +342,7 @@ export function storeMessageDirect(msg: {
     msg.content,
     msg.timestamp,
     msg.is_from_me ? 1 : 0,
+    msg.is_bot_message ? 1 : 0,
   );
 }
 
