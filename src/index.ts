@@ -421,12 +421,19 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   // WhatsApp) send a one-shot update and ignore subsequent calls gracefully.
   let typingInterval: ReturnType<typeof setInterval> | null = null;
   if (channel?.setTyping) {
-    await channel.setTyping(chatJid, true);
-    typingInterval = setInterval(() => {
-      channel.setTyping!(chatJid, true).catch(() => {
-        // Non-fatal — typing indicator is best-effort
-      });
-    }, 8_000);
+    try {
+      await channel.setTyping(chatJid, true);
+      typingInterval = setInterval(() => {
+        channel.setTyping!(chatJid, true).catch(() => {
+          // Non-fatal — typing indicator is best-effort
+        });
+      }, 8_000);
+    } catch (err) {
+      logger.debug(
+        { group: group.name, error: err },
+        'Typing indicator failed to start',
+      );
+    }
   }
 
   let hadError = false;
