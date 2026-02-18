@@ -54,6 +54,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Graphite CLI for stacked PRs workflow (pinned to stable version)
+ARG GRAPHITE_VERSION=1.7.16
+RUN npm install -g @withgraphite/graphite-cli@${GRAPHITE_VERSION}
+
 # Install claude-code globally
 # Note: agent-browser is available as an on-demand skill (installed on first use)
 RUN bun install -g @anthropic-ai/claude-code
