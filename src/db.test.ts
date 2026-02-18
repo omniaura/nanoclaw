@@ -81,19 +81,32 @@ describe('storeMessage', () => {
   it('stores is_from_me flag', () => {
     storeChatMetadata('group@g.us', '2024-01-01T00:00:00.000Z');
 
+    // Store a message from the user (is_from_me: false)
     store({
-      id: 'msg-3',
+      id: 'msg-user',
+      chat_jid: 'group@g.us',
+      sender: 'user@s.whatsapp.net',
+      sender_name: 'User',
+      content: 'user message',
+      timestamp: '2024-01-01T00:00:03.000Z',
+      is_from_me: false,
+    });
+
+    // Store a message from the bot (is_from_me: true)
+    store({
+      id: 'msg-bot',
       chat_jid: 'group@g.us',
       sender: 'me@s.whatsapp.net',
       sender_name: 'Me',
-      content: 'my message',
+      content: 'bot message',
       timestamp: '2024-01-01T00:00:05.000Z',
       is_from_me: true,
     });
 
-    // Message is stored (we can retrieve it — is_from_me doesn't affect retrieval)
+    // getMessagesSince filters out is_from_me: true messages
     const messages = getMessagesSince('group@g.us', '2024-01-01T00:00:00.000Z');
     expect(messages).toHaveLength(1);
+    expect(messages[0].id).toBe('msg-user');
   });
 
   it('upserts on duplicate id+chat_jid', () => {
