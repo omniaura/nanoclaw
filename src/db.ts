@@ -648,9 +648,10 @@ export function getRegisteredGroup(
     folder: row.folder,
     trigger: row.trigger_pattern,
     added_at: row.added_at,
-    containerConfig: row.container_config
-      ? JSON.parse(row.container_config)
-      : undefined,
+    containerConfig: (() => {
+      if (!row.container_config) return undefined;
+      try { return JSON.parse(row.container_config); } catch { logger.warn({ jid }, 'Corrupt container_config in DB, ignoring'); return undefined; }
+    })(),
     requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
     heartbeat: row.heartbeat
       ? (JSON.parse(row.heartbeat) as HeartbeatConfig)
@@ -727,9 +728,10 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
       folder: row.folder,
       trigger: row.trigger_pattern,
       added_at: row.added_at,
-      containerConfig: row.container_config
-        ? JSON.parse(row.container_config)
-        : undefined,
+      containerConfig: (() => {
+        if (!row.container_config) return undefined;
+        try { return JSON.parse(row.container_config); } catch { logger.warn({ jid: row.jid }, 'Corrupt container_config in DB, ignoring'); return undefined; }
+      })(),
       requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
       heartbeat: row.heartbeat
         ? (JSON.parse(row.heartbeat) as HeartbeatConfig)
@@ -843,7 +845,7 @@ export function getAgent(id: string): Agent | undefined {
     description: row.description || undefined,
     folder: row.folder,
     backend: row.backend as Agent['backend'],
-    containerConfig: row.container_config ? JSON.parse(row.container_config) : undefined,
+    containerConfig: (() => { if (!row.container_config) return undefined; try { return JSON.parse(row.container_config); } catch { logger.warn({ id: row.id }, 'Corrupt agent container_config in DB, ignoring'); return undefined; } })(),
     heartbeat: row.heartbeat ? JSON.parse(row.heartbeat) as HeartbeatConfig : undefined,
     isAdmin: row.is_admin === 1,
     isLocal: row.is_local === 1,
@@ -874,7 +876,7 @@ export function getAllAgents(): Record<string, Agent> {
       description: row.description || undefined,
       folder: row.folder,
       backend: row.backend as Agent['backend'],
-      containerConfig: row.container_config ? JSON.parse(row.container_config) : undefined,
+      containerConfig: (() => { if (!row.container_config) return undefined; try { return JSON.parse(row.container_config); } catch { logger.warn({ id: row.id }, 'Corrupt agent container_config in DB, ignoring'); return undefined; } })(),
       heartbeat: row.heartbeat ? JSON.parse(row.heartbeat) as HeartbeatConfig : undefined,
       isAdmin: row.is_admin === 1,
       isLocal: row.is_local === 1,
@@ -988,7 +990,7 @@ function migrateJsonState(): void {
     if (!fs.existsSync(filePath)) return null;
     try {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      fs.renameSync(filePath, `${filePath}.migrated`);
+      fs.unlinkSync(filePath);
       return data;
     } catch {
       return null;
