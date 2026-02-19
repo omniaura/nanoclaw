@@ -65,7 +65,7 @@ import { startS3IpcPoller } from './s3/ipc-poller.js';
 import { findChannel, formatMessages, formatOutbound, getAgentName } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
 import { createThreadStreamer } from './thread-streaming.js';
-import { Agent, Channel, ChannelRoute, NewMessage, RegisteredGroup, registeredGroupToAgent, registeredGroupToRoute } from './types.js';
+import { Agent, BackendType, Channel, ChannelRoute, NewMessage, RegisteredGroup, registeredGroupToAgent, registeredGroupToRoute } from './types.js';
 import { findMainGroupJid } from './group-helpers.js';
 import { logger } from './logger.js';
 import { Effect } from 'effect';
@@ -150,11 +150,39 @@ function loadState(): void {
   agents = getAllAgents();
   channelRoutes = getAllChannelRoutes();
 
+  // Backfill registeredGroups from channel_routes + agents.
+  // The registered_groups table has UNIQUE(folder), so it can only hold one JID
+  // per agent. But agents can have multiple channel routes (e.g. DM + group).
+  // Merge any missing JIDs so message routing works for all channels.
+  let backfilled = 0;
+  for (const [jid, route] of Object.entries(channelRoutes)) {
+    if (!registeredGroups[jid]) {
+      const agent = agents[route.agentId];
+      if (agent) {
+        registeredGroups[jid] = {
+          name: agent.name,
+          folder: agent.folder,
+          trigger: route.trigger,
+          added_at: route.createdAt,
+          containerConfig: agent.containerConfig,
+          requiresTrigger: route.requiresTrigger,
+          backend: agent.backend as BackendType,
+          description: agent.description,
+          discordGuildId: route.discordGuildId,
+          serverFolder: agent.serverFolder,
+          heartbeat: agent.heartbeat,
+        };
+        backfilled++;
+      }
+    }
+  }
+
   logger.info(
     {
       groupCount: Object.keys(registeredGroups).length,
       agentCount: Object.keys(agents).length,
       routeCount: Object.keys(channelRoutes).length,
+      backfilled,
     },
     'State loaded',
   );
