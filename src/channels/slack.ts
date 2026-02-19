@@ -1,7 +1,7 @@
 import { App } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 
-import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
+import { ASSISTANT_NAME, TRIGGER_PATTERN, escapeRegex } from '../config.js';
 import { logger } from '../logger.js';
 import { Channel, OnChatMetadata, OnInboundMessage, RegisteredGroup } from '../types.js';
 
@@ -289,7 +289,7 @@ export class SlackChannel implements Channel {
       !TRIGGER_PATTERN.test(content)
     ) {
       // Strip the existing @AssistantName occurrence and prepend it at the start
-      content = `@${ASSISTANT_NAME} ${content.replace(new RegExp(`@${escapeRegExp(ASSISTANT_NAME)}`, 'i'), '').trim()}`;
+      content = `@${ASSISTANT_NAME} ${content.replace(new RegExp(`@${escapeRegex(ASSISTANT_NAME)}`, 'i'), '').trim()}`;
     }
 
     // Prepend thread context if this is a threaded reply
