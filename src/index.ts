@@ -484,8 +484,11 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     TRIGGER_PATTERN.test(m.content) ||
     (m.mentions?.some((mention) => botNames.has(mention.name.toLowerCase())) ?? false);
   const triggeringMessage = missedMessages.findLast(isTriggerMessage);
-  const rawMessageId = triggeringMessage?.id || missedMessages[missedMessages.length - 1]?.id || null;
-  const triggeringMessageId = rawMessageId && /^(synth|react|notify|s3)-/.test(rawMessageId) ? null : rawMessageId;
+  // Always reply to the last message in the batch, not the triggering message.
+  // triggeringMessage is used to decide whether to process; the reply should
+  // thread to what the user most recently said.
+  const lastMessageId = missedMessages[missedMessages.length - 1]?.id || triggeringMessage?.id || null;
+  const triggeringMessageId = lastMessageId && /^(synth|react|notify|s3)-/.test(lastMessageId) ? null : lastMessageId;
   const lastContent = missedMessages[missedMessages.length - 1]?.content || '';
   const threadName = lastContent
     .replace(TRIGGER_PATTERN, '').trim().slice(0, 80) || 'Agent working...';
