@@ -413,8 +413,7 @@ export function createSanitizeReadHook(): HookCallback {
 
     // Block reads of sensitive files
     const blockedPatterns = [
-      /^\/proc\/\d+\/environ$/,       // Process environments
-      /^\/proc\/self\/environ$/,      // Current process env
+      /^\/proc\/(?:\d+|self)(?:\/[^/]+)*\/environ$/, // Process/task environ (any depth: /proc/<pid>/task/<tid>/environ)
       /^\/tmp\/input\.json$/,         // Stdin buffer
       /^\/workspace\/env-dir\//,      // Mounted env directory
       /^\/proc\/(\d+|self)\/mountinfo$/,  // Mount enumeration for any PID (Issue #79)
