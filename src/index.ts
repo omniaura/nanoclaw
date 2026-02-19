@@ -110,6 +110,8 @@ async function shutdown(): Promise<void> {
 
 let lastTimestamp = '';
 let sessions: Record<string, string> = {};
+// In-memory only: resume positions are an optimization to skip session replay.
+// On host restart, full replay occurs once per group (acceptable trade-off).
 let resumePositions: Record<string, string> = {};
 let registeredGroups: Record<string, RegisteredGroup> = {};
 let agents: Record<string, Agent> = {};
