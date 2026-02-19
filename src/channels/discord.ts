@@ -467,7 +467,28 @@ export class DiscordChannel implements Channel {
         } else if (a.contentType?.startsWith('audio/')) {
           parts.push('[Audio]');
         } else {
-          parts.push(`[File: ${a.name || 'attachment'}]`);
+          // Attempt to inline text-based file attachments
+          const TEXT_EXTENSIONS = new Set([
+            '.txt', '.md', '.json', '.csv', '.log', '.xml', '.yaml', '.yml',
+            '.toml', '.py', '.js', '.ts', '.html', '.css', '.sh', '.cfg',
+            '.ini', '.sql', '.env.example',
+          ]);
+          const MAX_TEXT_SIZE = 100 * 1024; // 100 KB
+          const ext = path.extname(a.name || '').toLowerCase();
+          const fileName = a.name || 'attachment';
+
+          if (TEXT_EXTENSIONS.has(ext) && (a.size ?? Infinity) <= MAX_TEXT_SIZE) {
+            try {
+              const resp = await fetch(a.url);
+              const text = await resp.text();
+              parts.push(`[attachment:file name=${fileName}]\n${text}\n[/attachment:file]`);
+            } catch (err) {
+              logger.error({ err, url: a.url }, 'Failed to download Discord text attachment');
+              parts.push(`[File: ${fileName}]`);
+            }
+          } else {
+            parts.push(`[File: ${fileName}]`);
+          }
         }
       }
       const suffix = parts.join(' ');
