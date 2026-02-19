@@ -579,11 +579,19 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           logger.error({ group: group.name }, `Suppressed system error (not sent to user): ${redactedText}`);
           hadError = true;
           // Skip sending to channel but continue processing
-        } else if (text && channel) {
-          const formatted = formatOutbound(channel, text, getAgentName(group));
-          if (formatted) {
-            await channel.sendMessage(chatJid, formatted, triggeringMessageId || undefined);
-            outputSentToUser = true;
+        } else if (text) {
+          // Route to the chatJid from the container output (multi-channel support).
+          // Falls back to the original launch chatJid for single-channel agents.
+          const targetJid = result.chatJid || chatJid;
+          const targetChannel = findChannel(channels, targetJid) || channel;
+          if (targetChannel) {
+            const formatted = formatOutbound(targetChannel, text, getAgentName(group));
+            if (formatted) {
+              // Don't use triggeringMessageId for cross-channel responses — it belongs to the original chat
+              const replyId = targetJid === chatJid ? triggeringMessageId : null;
+              await targetChannel.sendMessage(targetJid, formatted, replyId || undefined);
+              outputSentToUser = true;
+            }
           }
         }
         // Only reset idle timer on actual results, not session-update markers (result: null)

@@ -48,6 +48,7 @@ interface ContainerOutput {
   resumeAt?: string;
   error?: string;
   intermediate?: boolean;
+  chatJid?: string;
 }
 
 interface SessionEntry {
@@ -179,19 +180,21 @@ const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
 function writeOutput(output: ContainerOutput): void {
+  // Inject current chatJid so the host can route responses to the correct channel
+  const enriched = currentChatJidValue ? { ...output, chatJid: currentChatJidValue } : output;
   if (IS_S3_MODE) {
     // S3 mode: write to S3 outbox instead of stdout
-    writeS3Output(output).catch((err) => {
+    writeS3Output(enriched).catch((err) => {
       log(`Failed to write S3 output: ${err instanceof Error ? err.message : String(err)}`);
       // Fallback to stdout
       console.log(OUTPUT_START_MARKER);
-      console.log(JSON.stringify(output));
+      console.log(JSON.stringify(enriched));
       console.log(OUTPUT_END_MARKER);
     });
   } else {
     // Stdout mode: use markers (local/Daytona)
     console.log(OUTPUT_START_MARKER);
-    console.log(JSON.stringify(output));
+    console.log(JSON.stringify(enriched));
     console.log(OUTPUT_END_MARKER);
   }
 }
@@ -541,8 +544,10 @@ interface IpcMessage {
 // Track the current chat JID for multi-channel agents.
 // Written to /tmp/current_chat_jid so the MCP server can read it.
 const CURRENT_CHAT_FILE = '/tmp/current_chat_jid';
+let currentChatJidValue = '';
 
 function setCurrentChat(chatJid: string): void {
+  currentChatJidValue = chatJid;
   try { fs.writeFileSync(CURRENT_CHAT_FILE, chatJid); } catch { /* ignore */ }
 }
 

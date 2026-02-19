@@ -71,6 +71,8 @@ export interface ContainerOutput {
   resumeAt?: string;
   error?: string;
   intermediate?: boolean;
+  /** The chat JID this output should be routed to (multi-channel agents). */
+  chatJid?: string;
 }
 
 export interface VolumeMount {
