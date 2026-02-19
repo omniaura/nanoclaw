@@ -645,12 +645,17 @@ export class DiscordChannel implements Channel {
         );
         content = `@${ASSISTANT_NAME} ${content}`;
       } else if (isThread && message.channel.ownerId === botId) {
-        // Auto-trigger in threads created by this bot — no @mention needed
+        // Auto-trigger in threads created by this bot — no @mention needed.
+        // Use per-group trigger name for consistency with multi-agent setups.
         const threadName = message.channel.name || 'thread';
+        const agentName = group?.trigger?.replace(/^@/, '') || ASSISTANT_NAME;
+        const groupTriggerPattern = buildTriggerPattern(group?.trigger);
         logger.info({ chatJid, threadId: message.channelId, threadName, sender: senderName }, 'Auto-triggering in bot-created thread');
+        // Check original content before prepending thread context to avoid double trigger prefix
+        const hasGroupTrigger = groupTriggerPattern.test(content);
         content = `[In thread: ${threadName}] ${content}`;
-        if (!TRIGGER_PATTERN.test(content)) {
-          content = `@${ASSISTANT_NAME} ${content}`;
+        if (!hasGroupTrigger) {
+          content = `@${agentName} ${content}`;
         }
       } else if (this.shouldAutoRespond(content, group)) {
         logger.debug(
