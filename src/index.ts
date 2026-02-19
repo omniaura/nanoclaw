@@ -373,10 +373,14 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   if (missedMessages.length === 0) return true;
 
-  // For non-main groups, check if trigger is required and present
+  // For non-main groups, check if trigger is required and present.
+  // Use buildTriggerPattern(group.trigger) so @PeytonOmni / @OmarOmni groups
+  // aren't silently dropped by the global @Omni TRIGGER_PATTERN (mirrors the
+  // same fix already applied in startMessageLoop by PR #138).
   if (!isMainGroup && group.requiresTrigger !== false) {
+    const groupTriggerPattern = buildTriggerPattern(group.trigger);
     const hasTrigger = missedMessages.some((m) =>
-      TRIGGER_PATTERN.test(m.content.trim()),
+      groupTriggerPattern.test(m.content.trim()),
     );
     if (!hasTrigger) return true;
   }
