@@ -324,12 +324,56 @@ function createPreCompactHook(): HookCallback {
 // be visible to commands Kit runs.
 const SECRET_ENV_VARS = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'];
 
-function createSanitizeBashHook(): HookCallback {
+/**
+ * createSanitizeBashHook
+ *
+ * Dual protection for Bash commands:
+ * 1. Blocks commands attempting to access sensitive paths that could leak secrets
+ * 2. Prepends `unset` for secret env vars (defense-in-depth)
+ *
+ * The `unset` protects against accidental access, but /proc/self/environ
+ * is an immutable kernel snapshot that `unset` cannot clear. We must
+ * explicitly block access attempts.
+ *
+ * Related: Issue #79, upstream PR #216
+ */
+export function createSanitizeBashHook(): HookCallback {
   return async (input, _toolUseId, _context) => {
     const preInput = input as PreToolUseHookInput;
     const command = (preInput.tool_input as { command?: string })?.command;
     if (!command) return {};
 
+    // Block commands accessing /proc/*/environ (any path component, not just numbered PIDs)
+    // Broad match prevents traversal bypasses like /proc/self/../self/environ
+    if (/\/proc\/[^ \t\n]*\/environ/.test(command)) {
+      throw new Error(
+        'Access to /proc/*/environ is not allowed for security reasons. ' +
+        'This file contains process environment variables which may include sensitive credentials. ' +
+        'See: https://github.com/omniaura/nanoclaw/issues/79'
+      );
+    }
+
+    // Block other sensitive paths
+    const blockedPaths = [
+      /\/tmp\/input\.json/,              // Stdin buffer
+      /\/workspace\/env-dir(?:\/|$)/,   // Mounted env directory (with or without trailing slash)
+      /\/proc\/.*\/mountinfo/,       // Mount enumeration
+      /\/proc\/.*\/mounts/,          // Mount list
+      /\/etc\/mtab/,                 // Mount table
+      /\/etc\/fstab/,                // Filesystem table
+    ];
+
+    for (const pattern of blockedPaths) {
+      if (pattern.test(command)) {
+        throw new Error(
+          'This command attempts to access a restricted file that could expose credentials. ' +
+          'See: https://github.com/omniaura/nanoclaw/issues/79'
+        );
+      }
+    }
+
+    // Prepend unset for defense-in-depth
+    // (Even though secrets shouldn't be in process.env, unset provides extra safety)
     const unsetPrefix = `unset ${SECRET_ENV_VARS.join(' ')} 2>/dev/null; `;
     return {
       hookSpecificOutput: {
@@ -340,6 +384,57 @@ function createSanitizeBashHook(): HookCallback {
         },
       },
     };
+  };
+}
+
+/**
+ * createSanitizeReadHook
+ *
+ * Blocks Read tool access to files that could leak secrets:
+ * - /proc/[pid]/environ (kernel env snapshot)
+ * - /tmp/input.json (stdin buffer with secrets)
+ * - /workspace/env-dir/ (mounted env files)
+ * - Mount enumeration files (mountinfo, mtab, fstab)
+ *
+ * Related: Issue #79, upstream PR #216
+ */
+export function createSanitizeReadHook(): HookCallback {
+  return async (input, _toolUseId, _context) => {
+    const preInput = input as PreToolUseHookInput;
+    const filePath = (preInput.tool_input as { file_path?: string })?.file_path;
+    if (!filePath) return {};
+
+    // Normalize path: resolve '..' components and follow symlinks
+    // path.resolve only handles '..', so use realpathSync to also follow symlinks
+    let normalized = path.resolve(filePath);
+    try {
+      normalized = fs.realpathSync(normalized);
+    } catch {
+      // File may not exist yet; fall back to path.resolve result
+    }
+
+    // Block reads of sensitive files
+    const blockedPatterns = [
+      /^\/proc\/(?:\d+|self)(?:\/[^/]+)*\/environ$/, // Process/task environ (any depth: /proc/<pid>/task/<tid>/environ)
+      /^\/tmp\/input\.json$/,         // Stdin buffer
+      /^\/workspace\/env-dir\//,      // Mounted env directory
+      /^\/proc\/(\d+|self)\/mountinfo$/,  // Mount enumeration for any PID (Issue #79)
+      /^\/proc\/(\d+|self)\/mounts$/,    // Mount list for any PID
+      /^\/etc\/mtab$/,                // Mount table
+      /^\/etc\/fstab$/,               // Filesystem table
+    ];
+
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(normalized)) {
+        throw new Error(
+          `Reading ${filePath} is not allowed for security reasons. ` +
+          `This path could expose sensitive credentials. ` +
+          `See: https://github.com/omniaura/nanoclaw/issues/79`
+        );
+      }
+    }
+
+    return {};
   };
 }
 
@@ -589,7 +684,10 @@ async function runQuery(
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook()] }],
-        PreToolUse: [{ matcher: 'Bash', hooks: [createSanitizeBashHook()] }],
+        PreToolUse: [
+          { matcher: 'Bash', hooks: [createSanitizeBashHook()] },
+          { matcher: 'Read', hooks: [createSanitizeReadHook()] },
+        ],
       },
     }
   })) {
@@ -865,4 +963,7 @@ Please review these changes to understand your new capabilities and fixes.
   }
 }
 
-main();
+// Only run main() when this file is the entry point, not when imported as a module
+if (import.meta.main) {
+  main();
+}
