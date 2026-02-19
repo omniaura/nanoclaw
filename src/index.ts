@@ -470,10 +470,13 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   // Messages are ordered oldest-first, so findLast() gives us the newest @mention.
   // Use the per-group trigger string (e.g. "@OmarOmni") so groups with custom triggers
   // don't fall back to the last message in the batch when TRIGGER_PATTERN doesn't match.
+  // Also match the global TRIGGER_PATTERN since replies-to-bot are stored with "@Omni" prepended.
   const groupTriggerRe = group.trigger
     ? new RegExp(`^${group.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
     : TRIGGER_PATTERN;
-  const triggeringMessage = missedMessages.findLast((m) => groupTriggerRe.test(m.content.trim()));
+  const triggeringMessage = missedMessages.findLast(
+    (m) => groupTriggerRe.test(m.content.trim()) || TRIGGER_PATTERN.test(m.content.trim()),
+  );
   const rawMessageId = triggeringMessage?.id || missedMessages[missedMessages.length - 1]?.id || null;
   const triggeringMessageId = rawMessageId && /^(synth|react|notify|s3)-/.test(rawMessageId) ? null : rawMessageId;
   const lastContent = missedMessages[missedMessages.length - 1]?.content || '';
