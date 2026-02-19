@@ -147,16 +147,21 @@ export class SlackChannel implements Channel {
 
     try {
       const chunks = splitMessage(text);
+      let firstTs: string | undefined;
       let lastTs: string | undefined;
 
       for (let i = 0; i < chunks.length; i++) {
+        // First chunk threads under the trigger message (replyToMessageId).
+        // Subsequent chunks thread under the first chunk so they form a single thread.
+        const threadTs = i === 0 ? replyToMessageId : (firstTs ?? replyToMessageId);
         const result = await this.client.chat.postMessage({
           channel: channelId,
           text: chunks[i],
-          // Only thread the first chunk to the trigger message; rest follow in the thread
-          ...(replyToMessageId ? { thread_ts: replyToMessageId } : {}),
+          ...(threadTs ? { thread_ts: threadTs } : {}),
         });
-        lastTs = result.ts as string | undefined;
+        const ts = result.ts as string | undefined;
+        if (i === 0) firstTs = ts;
+        lastTs = ts;
       }
 
       logger.info({ jid, length: text.length }, 'Slack message sent');
@@ -274,19 +279,15 @@ export class SlackChannel implements Channel {
     let content = resolvedText;
 
     // Translate @BotName mention into our internal trigger format
-    // Slack uses <@BOTID> which we already resolved above to @AssistantName
+    // Slack uses <@BOTID> which we already resolved above to @AssistantName.
+    // If the message contains @AssistantName but isn't already in trigger format,
+    // move it to the front so TRIGGER_PATTERN matches.
     if (
       content.toLowerCase().includes(`@${ASSISTANT_NAME.toLowerCase()}`) &&
       !TRIGGER_PATTERN.test(content)
     ) {
-      content = content.replace(
-        new RegExp(`@${ASSISTANT_NAME}`, 'i'),
-        `@${ASSISTANT_NAME}`,
-      );
-      // Ensure it's at the start if it's the only trigger
-      if (!TRIGGER_PATTERN.test(content)) {
-        content = `@${ASSISTANT_NAME} ${content}`;
-      }
+      // Strip the existing @AssistantName occurrence and prepend it at the start
+      content = `@${ASSISTANT_NAME} ${content.replace(new RegExp(`@${ASSISTANT_NAME}`, 'i'), '').trim()}`;
     }
 
     // Prepend thread context if this is a threaded reply

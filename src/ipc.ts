@@ -157,6 +157,10 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 // Write response back so the agent can read the result
                 if (data.requestId) {
                   const safeRequestId = String(data.requestId).replace(/[^a-zA-Z0-9_-]/g, '');
+                  if (!safeRequestId) {
+                    logger.warn({ requestId: data.requestId }, 'format_mention: requestId sanitized to empty string — skipping response');
+                    break;
+                  }
                   const responseDir = path.join(ipcBaseDir, sourceGroup, 'responses');
                   fs.mkdirSync(responseDir, { recursive: true });
                   const responseFile = path.join(responseDir, `${safeRequestId}.json`);

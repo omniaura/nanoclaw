@@ -1074,7 +1074,7 @@ async function main(): Promise<void> {
         registeredGroups: () => registeredGroups,
         onReaction: async (chatJid, messageId, emoji, userName) => {
           // Share-request approval via thumbs-up / heart / check
-          if (emoji === ':thumbsup:' || emoji === ':heart:' || emoji === ':white_check_mark:') {
+          if (emoji === ':thumbsup:' || emoji === ':+1:' || emoji === ':heart:' || emoji === ':white_check_mark:') {
             const request = consumeShareRequest(messageId);
             if (request) {
               const mainJid = Object.entries(registeredGroups).find(
