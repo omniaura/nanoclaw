@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# When running as host uid (--user 501:20), there's no /etc/passwd entry.
+# Many tools (claude, git, ssh-keygen) need to resolve the current user.
+if ! id -un &>/dev/null 2>&1; then
+  echo "omniclaw:x:$(id -u):$(id -g):OmniClaw Agent:${HOME:-/home/bun}:/bin/bash" >> /etc/passwd
+fi
+
 # Source environment variables from mounted env file
 [ -f /workspace/env-dir/env ] && export $(cat /workspace/env-dir/env | xargs)
 

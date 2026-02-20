@@ -88,7 +88,9 @@ COPY container/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Set ownership to bun user (non-root) for writable directories
-RUN chown -R bun:bun /workspace && chmod 777 /home/bun
+# Make /etc/passwd group-writable so --user can add a dynamic entry at runtime
+RUN chown -R bun:bun /workspace && chmod 777 /home/bun \
+    && chmod 664 /etc/passwd
 
 # Pre-warm tsgo (native TypeScript checker) so `npx tsgo` / `bunx tsgo` works.
 # Host-mounted projects may have platform-specific binaries; npm global install

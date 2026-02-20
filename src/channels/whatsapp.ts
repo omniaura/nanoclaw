@@ -53,6 +53,9 @@ export class WhatsAppChannel implements Channel {
   private connectionHandler: ((data: any) => void) | null = null;
   private credsHandler: (() => Promise<void>) | null = null;
 
+  // Pending connect promise reject — used to signal startup failure without process.exit()
+  private connectReject: ((err: Error) => void) | null = null;
+
   private opts: WhatsAppChannelOpts;
 
   constructor(opts: WhatsAppChannelOpts) {
@@ -61,6 +64,7 @@ export class WhatsAppChannel implements Channel {
 
   async connect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
+      this.connectReject = reject;
       this.connectInternal(resolve).catch(reject);
     });
   }
@@ -108,7 +112,12 @@ export class WhatsAppChannel implements Channel {
           'WhatsApp authentication required. Run /setup in Claude Code.';
         logger.error(msg);
         $`osascript -e ${`display notification "${msg}" with title "OmniClaw" sound name "Basso"`}`.quiet().nothrow();
-        setTimeout(() => process.exit(1), 1000);
+        // Reject the connect() promise so the caller can handle gracefully
+        if (this.connectReject) {
+          this.connectReject(new Error(msg));
+          this.connectReject = null;
+        }
+        this.sock?.end(undefined);
       }
 
       if (connection === 'close') {
@@ -128,8 +137,13 @@ export class WhatsAppChannel implements Channel {
             }, 5000);
           });
         } else {
-          logger.info('Logged out. Run /setup to re-authenticate.');
-          process.exit(0);
+          const msg = 'Logged out. Run /setup to re-authenticate.';
+          logger.info(msg);
+          // Reject connect() promise if still pending (initial startup)
+          if (this.connectReject) {
+            this.connectReject(new Error(msg));
+            this.connectReject = null;
+          }
         }
       } else if (connection === 'open') {
         this.connected = true;
