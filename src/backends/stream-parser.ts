@@ -1,5 +1,5 @@
 /**
- * Shared output stream parser for NanoClaw backends.
+ * Shared output stream parser for OmniClaw backends.
  * Parses OUTPUT_START_MARKER/OUTPUT_END_MARKER pairs from agent stdout,
  * handles timeout management and startup detection.
  */
@@ -8,8 +8,8 @@ import { logger } from '../logger.js';
 import { ContainerOutput } from './types.js';
 
 // Sentinel markers for robust output parsing (must match agent-runner)
-export const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
-export const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+export const OUTPUT_START_MARKER = '---OMNICLAW_OUTPUT_START---';
+export const OUTPUT_END_MARKER = '---OMNICLAW_OUTPUT_END---';
 
 export interface StreamParserOptions {
   groupName: string;

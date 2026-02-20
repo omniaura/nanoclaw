@@ -1,5 +1,5 @@
 /**
- * OmniClaw Agent Runner
+ * OmniClaw Agent Runner (container-side)
  * Runs inside a container, receives config via stdin, outputs result to stdout
  *
  * Input protocol:
@@ -77,13 +77,13 @@ const IPC_INPUT_DIR = '/workspace/ipc/input';
 const IPC_INPUT_CLOSE_SENTINEL = path.join(IPC_INPUT_DIR, '_close');
 const IPC_POLL_MS = 500;
 
-// S3 mode detection: if NANOCLAW_S3_ENDPOINT is set, use S3 for output instead of stdout
-const S3_ENDPOINT = process.env.NANOCLAW_S3_ENDPOINT || '';
-const S3_ACCESS_KEY_ID = process.env.NANOCLAW_S3_ACCESS_KEY_ID || '';
-const S3_SECRET_ACCESS_KEY = process.env.NANOCLAW_S3_SECRET_ACCESS_KEY || '';
-const S3_BUCKET = process.env.NANOCLAW_S3_BUCKET || '';
-const S3_REGION = process.env.NANOCLAW_S3_REGION || '';
-const S3_AGENT_ID = process.env.NANOCLAW_AGENT_ID || '';
+// S3 mode detection: if OMNICLAW_S3_ENDPOINT is set, use S3 for output instead of stdout
+const S3_ENDPOINT = process.env.OMNICLAW_S3_ENDPOINT || '';
+const S3_ACCESS_KEY_ID = process.env.OMNICLAW_S3_ACCESS_KEY_ID || '';
+const S3_SECRET_ACCESS_KEY = process.env.OMNICLAW_S3_SECRET_ACCESS_KEY || '';
+const S3_BUCKET = process.env.OMNICLAW_S3_BUCKET || '';
+const S3_REGION = process.env.OMNICLAW_S3_REGION || '';
+const S3_AGENT_ID = process.env.OMNICLAW_AGENT_ID || '';
 const IS_S3_MODE = !!S3_ENDPOINT;
 
 let s3Client: any = null;
@@ -176,8 +176,8 @@ async function readStdin(): Promise<string> {
   });
 }
 
-const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
-const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+const OUTPUT_START_MARKER = '---OMNICLAW_OUTPUT_START---';
+const OUTPUT_END_MARKER = '---OMNICLAW_OUTPUT_END---';
 
 function writeOutput(output: ContainerOutput): void {
   // Inject current chatJid so the host can route responses to the correct channel
@@ -362,7 +362,7 @@ export function createSanitizeBashHook(): HookCallback {
       throw new Error(
         'Access to /proc/*/environ is not allowed for security reasons. ' +
         'This file contains process environment variables which may include sensitive credentials. ' +
-        'See: https://github.com/omniaura/nanoclaw/issues/79'
+        'See: https://github.com/omniaura/omniclaw/issues/79'
       );
     }
 
@@ -380,7 +380,7 @@ export function createSanitizeBashHook(): HookCallback {
       if (pattern.test(command)) {
         throw new Error(
           'This command attempts to access a restricted file that could expose credentials. ' +
-          'See: https://github.com/omniaura/nanoclaw/issues/79'
+          'See: https://github.com/omniaura/omniclaw/issues/79'
         );
       }
     }
@@ -442,7 +442,7 @@ export function createSanitizeReadHook(): HookCallback {
         throw new Error(
           `Reading ${filePath} is not allowed for security reasons. ` +
           `This path could expose sensitive credentials. ` +
-          `See: https://github.com/omniaura/nanoclaw/issues/79`
+          `See: https://github.com/omniaura/omniclaw/issues/79`
         );
       }
     }
@@ -588,11 +588,11 @@ function drainIpcInput(): IpcMessage[] {
 }
 
 /**
- * Build a channel name lookup from NANOCLAW_CHANNELS env var.
+ * Build a channel name lookup from OMNICLAW_CHANNELS env var.
  */
 function getChannelNameLookup(): Map<string, string> {
   const lookup = new Map<string, string>();
-  const channelsEnv = process.env.NANOCLAW_CHANNELS;
+  const channelsEnv = process.env.OMNICLAW_CHANNELS;
   if (channelsEnv) {
     try {
       const channels: ChannelInfo[] = JSON.parse(channelsEnv);
@@ -600,7 +600,7 @@ function getChannelNameLookup(): Map<string, string> {
         lookup.set(ch.jid, ch.name);
       }
     } catch (err) {
-      console.error(`[nanoclaw] Failed to parse NANOCLAW_CHANNELS: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`[omniclaw] Failed to parse OMNICLAW_CHANNELS: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   return lookup;
@@ -736,23 +736,23 @@ async function runQuery(
         'NotebookEdit',
         'EnterPlanMode', 'ExitPlanMode',
         'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
-        'mcp__nanoclaw__*'
+        'mcp__omniclaw__*'
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       settingSources: ['project', 'user'],
       mcpServers: {
-        nanoclaw: {
+        omniclaw: {
           command: 'bun',
           args: [mcpServerPath],
           env: {
-            NANOCLAW_CHAT_JID: containerInput.chatJid,
-            NANOCLAW_GROUP_FOLDER: containerInput.groupFolder,
-            NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
-            ...(containerInput.discordGuildId ? { NANOCLAW_DISCORD_GUILD_ID: containerInput.discordGuildId } : {}),
-            ...(containerInput.serverFolder ? { NANOCLAW_SERVER_FOLDER: containerInput.serverFolder } : {}),
-            ...(containerInput.channels ? { NANOCLAW_CHANNELS: JSON.stringify(containerInput.channels) } : {}),
+            OMNICLAW_CHAT_JID: containerInput.chatJid,
+            OMNICLAW_GROUP_FOLDER: containerInput.groupFolder,
+            OMNICLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
+            ...(containerInput.discordGuildId ? { OMNICLAW_DISCORD_GUILD_ID: containerInput.discordGuildId } : {}),
+            ...(containerInput.serverFolder ? { OMNICLAW_SERVER_FOLDER: containerInput.serverFolder } : {}),
+            ...(containerInput.channels ? { OMNICLAW_CHANNELS: JSON.stringify(containerInput.channels) } : {}),
           },
         },
       },
@@ -928,7 +928,7 @@ async function main(): Promise<void> {
 
   // Check for auto-update notification
   let updateNotification = '';
-  const updateInfoPath = process.env.UPDATE_INFO_PATH || '/workspace/data/.nanoclaw-update-info.json';
+  const updateInfoPath = process.env.UPDATE_INFO_PATH || '/workspace/data/.omniclaw-update-info.json';
   const productName = process.env.PRODUCT_NAME || 'OmniClaw';
   try {
     if (fs.existsSync(updateInfoPath)) {

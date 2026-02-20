@@ -4,14 +4,15 @@
 #
 # Supports: macOS (launchd), Linux (systemd), Docker (docker-compose)
 # Usage:    ./container/auto-update.sh
-# Env vars: NANOCLAW_BRANCH (default: main), NANOCLAW_SERVICE (default: nanoclaw)
+# Env vars: OMNICLAW_BRANCH (default: main), OMNICLAW_SERVICE (default: omniclaw)
+#           Legacy: NANOCLAW_BRANCH / NANOCLAW_SERVICE still work as fallback
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-LOCKFILE="/tmp/nanoclaw-update.lock"
-BRANCH="${NANOCLAW_BRANCH:-main}"
+LOCKFILE="/tmp/omniclaw-update.lock"
+BRANCH="${OMNICLAW_BRANCH:-${NANOCLAW_BRANCH:-main}}"
 LOG_DATE="$(date '+%Y-%m-%d %H:%M:%S')"
 
 log() { echo "[$LOG_DATE] $1"; }
@@ -85,7 +86,7 @@ log "Pulling latest code..."
 git pull --ff-only origin "$BRANCH"
 
 # Write update info for container to read
-UPDATE_INFO_FILENAME="${UPDATE_INFO_FILENAME:-.nanoclaw-update-info.json}"
+UPDATE_INFO_FILENAME="${UPDATE_INFO_FILENAME:-.omniclaw-update-info.json}"
 UPDATE_INFO_FILE="$REPO_DIR/data/$UPDATE_INFO_FILENAME"
 mkdir -p "$(dirname "$UPDATE_INFO_FILE")"
 
@@ -139,9 +140,9 @@ fi
 
 # Wait for agents to be idle before restarting
 # Check for recent [agent-runner] activity in the log
-IDLE_THRESHOLD="${NANOCLAW_IDLE_THRESHOLD:-120}"
-MAX_WAIT="${NANOCLAW_MAX_WAIT:-600}"
-LOG_FILE="$REPO_DIR/logs/nanoclaw.log"
+IDLE_THRESHOLD="${OMNICLAW_IDLE_THRESHOLD:-${NANOCLAW_IDLE_THRESHOLD:-120}}"
+MAX_WAIT="${OMNICLAW_MAX_WAIT:-${NANOCLAW_MAX_WAIT:-600}}"
+LOG_FILE="$REPO_DIR/logs/omniclaw.log"
 WAITED=0
 
 while [ "$WAITED" -lt "$MAX_WAIT" ] && [ -f "$LOG_FILE" ]; do
@@ -179,13 +180,13 @@ if [ -f "docker-compose.yml" ]; then
     else
         docker compose down && docker compose up -d
     fi
-elif [ "$(uname)" = "Darwin" ] && launchctl list 2>/dev/null | grep -q com.nanoclaw; then
+elif [ "$(uname)" = "Darwin" ] && launchctl list 2>/dev/null | grep -q com.omniclaw; then
     # macOS launchd
-    launchctl kickstart -k "gui/$(id -u)/com.nanoclaw"
-    log "Kicked com.nanoclaw via launchd"
+    launchctl kickstart -k "gui/$(id -u)/com.omniclaw"
+    log "Kicked com.omniclaw via launchd"
 elif command -v systemctl &> /dev/null; then
     # Linux systemd
-    SERVICE_NAME="${NANOCLAW_SERVICE:-nanoclaw}"
+    SERVICE_NAME="${OMNICLAW_SERVICE:-${NANOCLAW_SERVICE:-omniclaw}}"
     if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         sudo systemctl restart "$SERVICE_NAME"
         log "Restarted systemd service: $SERVICE_NAME"

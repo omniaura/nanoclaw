@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/nanoclaw-logo.png" alt="NanoClaw" width="400">
+  <img src="assets/omniclaw-logo.png" alt="OmniClaw" width="400">
 </p>
 
 <p align="center">
@@ -17,13 +17,13 @@
 
 [OpenClaw](https://github.com/openclaw/openclaw) 是一个令人印象深刻的项目，愿景宏大。但我无法安心地运行一个我不了解、却能接触我个人生活的软件。OpenClaw 有 52 多个模块、8 个配置管理文件、45 多个依赖项，以及为 15 个渠道提供商设计的抽象层。其安全性是应用级别的（通过白名单、配对码），而非操作系统级别的隔离。所有东西都在一个共享内存的 Node 进程中运行。
 
-NanoClaw 用一个你能在 8 分钟内理解的代码库，为你提供了同样的核心功能。只有一个进程，寥寥数个文件。智能体（Agent）运行在具有文件系统隔离的真实 Linux 容器中，而不是依赖于权限检查。
+OmniClaw 用一个你能在 8 分钟内理解的代码库，为你提供了同样的核心功能。只有一个进程，寥寥数个文件。智能体（Agent）运行在具有文件系统隔离的真实 Linux 容器中，而不是依赖于权限检查。
 
 ## 快速上手
 
 ```bash
-git clone https://github.com/gavrielc/nanoclaw.git
-cd nanoclaw
+git clone https://github.com/omniaura/omniclaw.git
+cd omniclaw
 claude
 ```
 
@@ -90,7 +90,7 @@ claude
 
 **不要添加功能，而是添加技能。**
 
-如果你想添加 Telegram 支持，不要创建一个 PR 同时添加 Telegram 和 WhatsApp。而是贡献一个技能文件 (`.claude/skills/add-telegram/SKILL.md`)，教 Claude Code 如何改造一个 NanoClaw 安装以使用 Telegram。
+如果你想添加 Telegram 支持，不要创建一个 PR 同时添加 Telegram 和 WhatsApp。而是贡献一个技能文件 (`.claude/skills/add-telegram/SKILL.md`)，教 Claude Code 如何改造一个 OmniClaw 安装以使用 Telegram。
 
 然后用户在自己的 fork 上运行 `/add-telegram`，就能得到只做他们需要的事情的整洁代码，而不是一个试图支持所有用例的臃肿系统。
 

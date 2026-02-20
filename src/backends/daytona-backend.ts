@@ -1,5 +1,5 @@
 /**
- * Daytona Backend for NanoClaw
+ * Daytona Backend for OmniClaw
  * Runs agents on Daytona cloud sandboxes via the official TypeScript SDK.
  * Each group gets its own persistent sandbox.
  *
@@ -152,7 +152,7 @@ export class DaytonaBackend implements AgentBackend {
       return cached;
     }
 
-    const sandboxName = `nanoclaw-${groupFolder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+    const sandboxName = `omniclaw-${groupFolder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
 
     // Try to find existing sandbox
     let sandbox: Sandbox | null = null;
@@ -170,7 +170,7 @@ export class DaytonaBackend implements AgentBackend {
         ...(DAYTONA_SNAPSHOT ? { snapshot: DAYTONA_SNAPSHOT } : {}),
         language: 'typescript',
         autoStopInterval: 0, // Don't auto-stop (we manage lifecycle)
-        labels: { project: 'nanoclaw', group: groupFolder },
+        labels: { project: 'omniclaw', group: groupFolder },
       }, { timeout: 120 });
     }
 
@@ -197,7 +197,7 @@ export class DaytonaBackend implements AgentBackend {
   ): Promise<ContainerOutput> {
     const startTime = Date.now();
     const { sandbox, homeDir } = await this.getSandbox(group.folder);
-    const sandboxName = sandbox.name || `nanoclaw-${group.folder}`;
+    const sandboxName = sandbox.name || `omniclaw-${group.folder}`;
 
     logger.info(
       { group: group.name, sandbox: sandboxName, isMain: input.isMain },

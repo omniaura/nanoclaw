@@ -23,9 +23,9 @@ done
 if [ -z "$RUNTIME" ]; then
   log "ERROR: --runtime flag is required (apple-container|docker)"
   cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: unknown
-IMAGE: nanoclaw-agent:latest
+IMAGE: omniclaw-agent:latest
 BUILD_OK: false
 TEST_OK: false
 STATUS: failed
@@ -36,7 +36,7 @@ EOF
   exit 4
 fi
 
-IMAGE="nanoclaw-agent:latest"
+IMAGE="omniclaw-agent:latest"
 
 # Determine build/run commands based on runtime
 case "$RUNTIME" in
@@ -44,7 +44,7 @@ case "$RUNTIME" in
     if ! command -v container >/dev/null 2>&1; then
       log "Apple Container runtime not found"
       cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: apple-container
 IMAGE: $IMAGE
 BUILD_OK: false
@@ -63,7 +63,7 @@ EOF
     if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
       log "Docker runtime not available or not running"
       cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: docker
 IMAGE: $IMAGE
 BUILD_OK: false
@@ -81,7 +81,7 @@ EOF
   *)
     log "Unknown runtime: $RUNTIME"
     cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: $RUNTIME
 IMAGE: $IMAGE
 BUILD_OK: false
@@ -105,7 +105,7 @@ if (cd "$PROJECT_ROOT/container" && $BUILD_CMD -t "$IMAGE" .) >> "$LOG_FILE" 2>&
 else
   log "Container build failed"
   cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: $RUNTIME
 IMAGE: $IMAGE
 BUILD_OK: false
@@ -135,7 +135,7 @@ if [ "$BUILD_OK" = "false" ] || [ "$TEST_OK" = "false" ]; then
 fi
 
 cat <<EOF
-=== NANOCLAW SETUP: SETUP_CONTAINER ===
+=== OMNICLAW SETUP: SETUP_CONTAINER ===
 RUNTIME: $RUNTIME
 IMAGE: $IMAGE
 BUILD_OK: $BUILD_OK

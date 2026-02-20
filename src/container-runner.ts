@@ -1,5 +1,5 @@
 /**
- * Container Runner for NanoClaw
+ * Container Runner for OmniClaw
  * Thin re-export layer for backward compatibility.
  * Actual implementation is in backends/local-backend.ts.
  */

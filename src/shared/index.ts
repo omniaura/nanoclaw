@@ -1,5 +1,5 @@
 /**
- * Shared utilities for NanoClaw
+ * Shared utilities for OmniClaw
  * Reusable across all backends and agents
  */
 

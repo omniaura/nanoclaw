@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Slack Integration for NanoClaw
+ * Slack Integration for OmniClaw
  *
  * A standalone TypeScript/Bun script to interact with Slack.
  * Provides CLI interface for reading/sending messages, managing threads.

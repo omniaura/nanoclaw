@@ -60,7 +60,7 @@ import { getCloudAgentIds } from './agents.js';
 import { resolveAgentForChannel, buildAgentToChannelsMap } from './channel-routes.js';
 import { GroupQueue } from './group-queue.js';
 import { consumeShareRequest, startIpcWatcher } from './ipc.js';
-import { NanoClawS3 } from './s3/client.js';
+import { OmniClawS3 } from './s3/client.js';
 import { startS3IpcPoller } from './s3/ipc-poller.js';
 import { findChannel, formatMessages, formatOutbound, getAgentName } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
@@ -74,7 +74,7 @@ import { Effect } from 'effect';
 export { escapeXml, formatMessages } from './router.js';
 
 // Global error handlers to prevent crashes from unhandled rejections/exceptions
-// See: https://github.com/qwibitai/nanoclaw/issues/221
+// See: https://github.com/omniaura/omniclaw/issues/221
 // Adopted from [Upstream PR #243] - Critical stability fix
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(
@@ -129,9 +129,9 @@ let processedIds = new Set<string>(); // Deduplication for timestamp boundary me
 const consecutiveErrors: Record<string, number> = {};
 const MAX_CONSECUTIVE_ERRORS = 3;
 
-let whatsapp: WhatsAppChannel;
+let whatsapp: WhatsAppChannel | null = null;
 let channels: Channel[] = [];
-let s3: NanoClawS3 | null = null;
+let s3: OmniClawS3 | null = null;
 const queue = new GroupQueue();
 
 function loadState(): void {
@@ -776,7 +776,7 @@ async function startMessageLoop(): Promise<void> {
   }
   messageLoopRunning = true;
 
-  logger.info(`NanoClaw running (trigger: @${ASSISTANT_NAME})`);
+  logger.info(`OmniClaw running (trigger: @${ASSISTANT_NAME})`);
 
   while (true) {
     try {
@@ -956,7 +956,7 @@ async function main(): Promise<void> {
 
   // Initialize S3 client if B2 is configured
   if (B2_ENDPOINT) {
-    s3 = new NanoClawS3({
+    s3 = new OmniClawS3({
       endpoint: B2_ENDPOINT,
       accessKeyId: B2_ACCESS_KEY_ID,
       secretAccessKey: B2_SECRET_ACCESS_KEY,
@@ -996,57 +996,88 @@ async function main(): Promise<void> {
 
   const initBackends = Effect.promise(() => initializeBackends(registeredGroups));
 
-  const connectWhatsApp = Effect.gen(function* () {
-    const wa = new WhatsAppChannel({
-      onMessage: (chatJid, msg) => storeMessage(msg),
-      onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
-      registeredGroups: () => registeredGroups,
-      onReaction: (chatJid, messageId, emoji) => {
-        // Only handle approval emojis
-        if (!emoji.startsWith('👍') && emoji !== '❤️' && emoji !== '✅') return;
+  const WHATSAPP_RETRY_INTERVAL_MS = 60_000; // 1 minute between retries
+  const WHATSAPP_MAX_RETRIES = 30; // give up after ~30 minutes
 
-        const request = consumeShareRequest(messageId);
-        if (!request) return; // Not a tracked share request
+  const createWhatsAppChannel = () => new WhatsAppChannel({
+    onMessage: (chatJid, msg) => storeMessage(msg),
+    onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
+    registeredGroups: () => registeredGroups,
+    onReaction: (chatJid, messageId, emoji) => {
+      // Only handle approval emojis
+      if (!emoji.startsWith('👍') && emoji !== '❤️' && emoji !== '✅') return;
 
-        // Find the main group's JID
-        const mainJid = findMainGroupJid(registeredGroups);
-        if (!mainJid) return;
+      const request = consumeShareRequest(messageId);
+      if (!request) return; // Not a tracked share request
 
-        logger.info(
-          { messageId, emoji, sourceGroup: request.sourceGroup, sourceName: request.sourceName },
-          'Share request approved via reaction',
-        );
+      // Find the main group's JID
+      const mainJid = findMainGroupJid(registeredGroups);
+      if (!mainJid) return;
 
-        // Inject synthetic message into main group DB
-        const writePaths = request.serverFolder
-          ? `groups/${request.sourceGroup}/CLAUDE.md and/or groups/${request.serverFolder}/CLAUDE.md`
-          : `groups/${request.sourceGroup}/CLAUDE.md`;
-        const syntheticContent = [
-          `Share request APPROVED from ${request.sourceName} (${request.sourceJid}):`,
-          ``,
-          `${request.description}`,
-          ``,
-          `Fulfill this request — write context to ${writePaths}, clone repos if needed.`,
-          `When done, use send_message to ${request.sourceJid} to notify them: "Your context request has been fulfilled! [brief summary] — check your CLAUDE.md and workspace for updates."`,
-        ].join('\n');
+      logger.info(
+        { messageId, emoji, sourceGroup: request.sourceGroup, sourceName: request.sourceName },
+        'Share request approved via reaction',
+      );
 
-        storeMessage({
-          id: `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          chat_jid: mainJid,
-          sender: 'system',
-          sender_name: 'System',
-          content: syntheticContent,
-          timestamp: new Date().toISOString(),
-          is_from_me: false,
-        });
+      // Inject synthetic message into main group DB
+      const writePaths = request.serverFolder
+        ? `groups/${request.sourceGroup}/CLAUDE.md and/or groups/${request.serverFolder}/CLAUDE.md`
+        : `groups/${request.sourceGroup}/CLAUDE.md`;
+      const syntheticContent = [
+        `Share request APPROVED from ${request.sourceName} (${request.sourceJid}):`,
+        ``,
+        `${request.description}`,
+        ``,
+        `Fulfill this request — write context to ${writePaths}, clone repos if needed.`,
+        `When done, use send_message to ${request.sourceJid} to notify them: "Your context request has been fulfilled! [brief summary] — check your CLAUDE.md and workspace for updates."`,
+      ].join('\n');
 
-        // Wake up the main agent
-        queue.enqueueMessageCheck(mainJid);
-      },
-    });
-    yield* Effect.promise(() => wa.connect());
-    return wa;
+      storeMessage({
+        id: `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: mainJid,
+        sender: 'system',
+        sender_name: 'System',
+        content: syntheticContent,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+      });
+
+      // Wake up the main agent
+      queue.enqueueMessageCheck(mainJid);
+    },
   });
+
+  /** Retry WhatsApp connection in the background with backoff */
+  const scheduleWhatsAppRetry = (attempt = 1) => {
+    if (attempt > WHATSAPP_MAX_RETRIES) {
+      logger.error({ attempts: attempt - 1 }, 'WhatsApp retry limit reached — giving up. Restart the service to try again.');
+      return;
+    }
+    const delayMs = Math.min(WHATSAPP_RETRY_INTERVAL_MS * attempt, 5 * 60_000); // cap at 5 min
+    logger.info({ attempt, delayMs, maxRetries: WHATSAPP_MAX_RETRIES }, `Scheduling WhatsApp reconnect in ${Math.round(delayMs / 1000)}s`);
+    setTimeout(async () => {
+      try {
+        const wa = createWhatsAppChannel();
+        await wa.connect();
+        whatsapp = wa;
+        channels.push(wa);
+        logger.info('WhatsApp connected on retry — channel is now active');
+      } catch (err) {
+        logger.warn({ err, attempt }, 'WhatsApp retry failed');
+        scheduleWhatsAppRetry(attempt + 1);
+      }
+    }, delayMs);
+  };
+
+  const connectWhatsApp = Effect.gen(function* () {
+    const wa = createWhatsAppChannel();
+    yield* Effect.tryPromise(() => wa.connect());
+    return wa;
+  }).pipe(Effect.catchAll((err) => {
+    logger.error({ err }, 'Failed to connect WhatsApp (continuing without WhatsApp)');
+    scheduleWhatsAppRetry();
+    return Effect.succeed(null);
+  }));
 
   const connectDiscord = DISCORD_BOT_TOKEN
     ? Effect.gen(function* () {
@@ -1129,8 +1160,8 @@ async function main(): Promise<void> {
             }
           },
         });
-        yield* Effect.promise(() => discord.connect());
-        yield* Effect.promise(() => backfillDiscordGuildIds(discord));
+        yield* Effect.tryPromise(() => discord.connect());
+        yield* Effect.tryPromise(() => backfillDiscordGuildIds(discord));
         return discord as Channel;
       }).pipe(Effect.catchAll((err) => {
         logger.error({ err }, 'Failed to connect Discord bot (continuing without Discord)');
@@ -1145,7 +1176,7 @@ async function main(): Promise<void> {
           onChatMetadata: (chatJid, timestamp, name) => storeChatMetadata(chatJid, timestamp, name),
           registeredGroups: () => registeredGroups,
         });
-        yield* Effect.promise(() => telegram.connect());
+        yield* Effect.tryPromise(() => telegram.connect());
         return telegram as Channel;
       }).pipe(Effect.catchAll((err) => {
         logger.error({ err }, 'Failed to connect Telegram bot (continuing without Telegram)');
@@ -1158,7 +1189,7 @@ async function main(): Promise<void> {
   );
 
   whatsapp = wa;
-  channels.push(whatsapp);
+  if (whatsapp) channels.push(whatsapp);
   if (discord) channels.push(discord);
   if (telegram) channels.push(telegram);
 
@@ -1311,7 +1342,7 @@ async function main(): Promise<void> {
       registeredGroups[jid] = group;
       setRegisteredGroup(jid, group);
     },
-    syncGroupMetadata: (force) => whatsapp.syncGroupMetadata(force),
+    syncGroupMetadata: (force) => whatsapp?.syncGroupMetadata(force) ?? Promise.resolve(),
     getAvailableGroups,
     writeGroupsSnapshot: (gf, im, ag, rj) => writeGroupsSnapshot(gf, im, ag, rj),
     findChannel: (jid) => findChannel(channels, jid),
@@ -1400,7 +1431,7 @@ async function main(): Promise<void> {
             registeredGroups[jid] = group;
             setRegisteredGroup(jid, group);
           },
-          syncGroupMetadata: (force) => whatsapp.syncGroupMetadata(force),
+          syncGroupMetadata: (force) => whatsapp?.syncGroupMetadata(force) ?? Promise.resolve(),
           getAvailableGroups,
           writeGroupsSnapshot: (gf, im, ag, rj) => writeGroupsSnapshot(gf, im, ag, rj),
         });
@@ -1421,7 +1452,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   main().catch((err) => {
-    logger.error({ err }, 'Failed to start NanoClaw');
+    logger.error({ err }, 'Failed to start OmniClaw');
     process.exit(1);
   });
 }

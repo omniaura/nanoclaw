@@ -27,7 +27,7 @@ done
 if [ -z "$METHOD" ]; then
   log "ERROR: --method flag is required"
   cat <<EOF
-=== NANOCLAW SETUP: AUTH_WHATSAPP ===
+=== OMNICLAW SETUP: AUTH_WHATSAPP ===
 AUTH_METHOD: unknown
 AUTH_STATUS: failed
 STATUS: failed
@@ -93,7 +93,7 @@ emit_status() {
   phone_number=$(get_phone_number)
 
   cat <<EOF
-=== NANOCLAW SETUP: AUTH_WHATSAPP ===
+=== OMNICLAW SETUP: AUTH_WHATSAPP ===
 AUTH_METHOD: $METHOD
 AUTH_STATUS: $auth_status
 EOF
@@ -181,7 +181,7 @@ case "$METHOD" in
             # Replace QR page with success page so browser auto-refresh shows it
             cat > "$PROJECT_ROOT/store/qr-auth.html" <<'SUCCESSEOF'
 <!DOCTYPE html>
-<html><head><title>NanoClaw - Connected!</title>
+<html><head><title>OmniClaw - Connected!</title>
 <style>
   body { font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
   .card { background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
@@ -194,7 +194,7 @@ case "$METHOD" in
   <h2>Connected to WhatsApp</h2>
   <p>You can close this tab.</p>
 </div>
-<script>localStorage.removeItem('nanoclaw_qr_start');</script>
+<script>localStorage.removeItem('omniclaw_qr_start');</script>
 </body></html>
 SUCCESSEOF
             emit_status "$STATUS_CONTENT" "success"
@@ -234,7 +234,7 @@ SUCCESSEOF
     if [ -z "$PHONE" ]; then
       log "ERROR: --phone is required for pairing-code method"
       cat <<EOF
-=== NANOCLAW SETUP: AUTH_WHATSAPP ===
+=== OMNICLAW SETUP: AUTH_WHATSAPP ===
 AUTH_METHOD: pairing-code
 AUTH_STATUS: failed
 STATUS: failed
@@ -320,7 +320,7 @@ EOF
   qr-terminal)
     log "QR terminal method selected — manual flow"
     cat <<EOF
-=== NANOCLAW SETUP: AUTH_WHATSAPP ===
+=== OMNICLAW SETUP: AUTH_WHATSAPP ===
 AUTH_METHOD: qr-terminal
 AUTH_STATUS: manual
 PROJECT_PATH: $PROJECT_ROOT
@@ -334,7 +334,7 @@ EOF
   *)
     log "Unknown auth method: $METHOD"
     cat <<EOF
-=== NANOCLAW SETUP: AUTH_WHATSAPP ===
+=== OMNICLAW SETUP: AUTH_WHATSAPP ===
 AUTH_METHOD: $METHOD
 AUTH_STATUS: failed
 STATUS: failed

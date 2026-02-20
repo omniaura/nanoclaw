@@ -1,5 +1,5 @@
 /**
- * Sprites IPC Poller for NanoClaw
+ * Sprites IPC Poller for OmniClaw
  * Polls IPC directories on remote Sprites for messages and tasks,
  * analogous to the local filesystem polling in ipc.ts.
  */
@@ -50,7 +50,7 @@ export function startSpritesIpcPoller(deps: SpritesIpcPollerDeps): void {
     }
 
     for (const [jid, group] of spritesGroups) {
-      const spriteName = `nanoclaw-${group.folder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+      const spriteName = `omniclaw-${group.folder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
       const isMain = group.folder === 'main';
 
       try {

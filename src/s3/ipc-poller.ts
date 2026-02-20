@@ -1,5 +1,5 @@
 /**
- * Universal S3 IPC Poller for NanoClaw
+ * Universal S3 IPC Poller for OmniClaw
  * Replaces sprites-ipc-poller.ts + daytona-ipc-poller.ts with a single
  * S3-based poller that works for all cloud agents.
  *
@@ -9,11 +9,11 @@
 
 import { IPC_POLL_INTERVAL } from '../config.js';
 import { logger } from '../logger.js';
-import type { NanoClawS3 } from './client.js';
+import type { OmniClawS3 } from './client.js';
 import type { S3Output } from './types.js';
 
 export interface S3IpcPollerDeps {
-  s3: NanoClawS3;
+  s3: OmniClawS3;
   /** Get the list of cloud agent IDs that should be polled. */
   getCloudAgentIds: () => string[];
   /** Process an outbox result (deliver to channel). */

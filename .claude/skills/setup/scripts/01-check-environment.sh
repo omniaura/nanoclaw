@@ -88,7 +88,7 @@ log "Environment check complete"
 
 # Output structured status block
 cat <<EOF
-=== NANOCLAW SETUP: CHECK_ENVIRONMENT ===
+=== OMNICLAW SETUP: CHECK_ENVIRONMENT ===
 PLATFORM: $PLATFORM
 NODE_VERSION: $NODE_VERSION
 NODE_OK: $NODE_OK

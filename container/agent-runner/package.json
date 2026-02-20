@@ -1,8 +1,8 @@
 {
-  "name": "nanoclaw-agent-runner",
+  "name": "omniclaw-agent-runner",
   "version": "1.0.0",
   "type": "module",
-  "description": "Container-side agent runner for NanoClaw",
+  "description": "Container-side agent runner for OmniClaw",
   "main": "src/index.ts",
   "scripts": {
     "start": "bun src/index.ts"

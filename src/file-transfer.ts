@@ -1,5 +1,5 @@
 /**
- * Cross-backend file transfer for NanoClaw.
+ * Cross-backend file transfer for OmniClaw.
  * Copies files between agents running on different backends
  * (e.g., local Apple Container → Sprites cloud, or vice versa).
  */

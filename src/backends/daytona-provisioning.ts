@@ -1,5 +1,5 @@
 /**
- * Daytona Provisioning for NanoClaw
+ * Daytona Provisioning for OmniClaw
  * Handles first-time setup of a Daytona sandbox.
  * Lighter than Sprites — Claude Code is pre-installed in default Daytona snapshots.
  */
@@ -54,7 +54,7 @@ async function runRequired(
 export async function isDaytonaProvisioned(sandbox: SandboxHandle): Promise<boolean> {
   try {
     const workdir = await sandbox.getWorkDir() || '/home/daytona';
-    const result = await sandbox.process.executeCommand(`test -f ${workdir}/workspace/.nanoclaw-provisioned`);
+    const result = await sandbox.process.executeCommand(`test -f ${workdir}/workspace/.omniclaw-provisioned`);
     return result.exitCode === 0;
   } catch {
     return false;
@@ -62,7 +62,7 @@ export async function isDaytonaProvisioned(sandbox: SandboxHandle): Promise<bool
 }
 
 /**
- * Provision a Daytona sandbox with dependencies needed to run NanoClaw agent-runner.
+ * Provision a Daytona sandbox with dependencies needed to run OmniClaw agent-runner.
  * This is idempotent — skips if already provisioned.
  *
  * Creates workspace dirs under the sandbox working directory and symlinks from
@@ -136,7 +136,7 @@ export async function provisionDaytona(sandbox: SandboxHandle, sandboxName: stri
 
   // Write provision marker
   await sandbox.process.executeCommand(
-    `echo "provisioned=$(date -Iseconds) workdir=${workdir}" > ${workdir}/workspace/.nanoclaw-provisioned`,
+    `echo "provisioned=$(date -Iseconds) workdir=${workdir}" > ${workdir}/workspace/.omniclaw-provisioned`,
   );
 
   logger.info({ sandbox: sandboxName, workdir, homedir }, 'Daytona sandbox provisioning complete');

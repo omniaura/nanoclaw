@@ -1,5 +1,5 @@
 /**
- * Backend type definitions for NanoClaw
+ * Backend type definitions for OmniClaw
  * Defines the AgentBackend interface that all backends implement.
  */
 

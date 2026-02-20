@@ -1,5 +1,5 @@
 /**
- * Channel routing for NanoClaw.
+ * Channel routing for OmniClaw.
  * Maps channel JIDs to agents. Multiple channels can route to the same agent.
  */
 

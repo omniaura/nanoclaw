@@ -1,5 +1,5 @@
 /**
- * Agent CRUD operations for NanoClaw.
+ * Agent CRUD operations for OmniClaw.
  * Thin wrapper around db.ts accessors with convenience helpers.
  */
 

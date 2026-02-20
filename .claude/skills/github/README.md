@@ -1,6 +1,6 @@
 # GitHub Skill
 
-Comprehensive GitHub workflow automation for NanoClaw agents.
+Comprehensive GitHub workflow automation for OmniClaw agents.
 
 See [SKILL.md](./SKILL.md) for full documentation.
 

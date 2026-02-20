@@ -1,5 +1,5 @@
 /**
- * Railway GraphQL API wrapper for NanoClaw.
+ * Railway GraphQL API wrapper for OmniClaw.
  * Provides lifecycle management for Railway services.
  */
 

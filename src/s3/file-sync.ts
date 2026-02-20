@@ -1,5 +1,5 @@
 /**
- * Universal S3 File Sync for NanoClaw
+ * Universal S3 File Sync for OmniClaw
  * Extracts the duplicated syncFiles() pattern from sprites-backend + daytona-backend
  * into a single implementation that uploads to B2 sync/ prefix.
  *
@@ -12,7 +12,7 @@ import crypto from 'crypto';
 
 import { DATA_DIR, GROUPS_DIR } from '../config.js';
 import { logger } from '../logger.js';
-import type { NanoClawS3 } from './client.js';
+import type { OmniClawS3 } from './client.js';
 
 /** Content hash cache: skip uploading unchanged files. */
 const fileHashCache = new Map<string, string>();
@@ -25,7 +25,7 @@ function hashContent(content: string | Buffer): string {
  * Upload a file to S3 only if its content has changed since last upload.
  */
 async function syncFileToS3(
-  s3: NanoClawS3,
+  s3: OmniClawS3,
   agentId: string,
   relativePath: string,
   content: string | Buffer,
@@ -53,7 +53,7 @@ export interface SyncFilesOptions {
  * This is the universal version of the duplicated syncFiles() in sprites-backend and daytona-backend.
  */
 export async function syncFilesToS3(
-  s3: NanoClawS3,
+  s3: OmniClawS3,
   opts: SyncFilesOptions,
 ): Promise<number> {
   const projectRoot = process.cwd();
@@ -131,7 +131,7 @@ export async function syncFilesToS3(
   // SSH key (if configured)
   const sshKeyPath = path.join(
     process.env.HOME || '/Users/user',
-    '.config', 'nanoclaw', 'ssh', 'id_ed25519',
+    '.config', 'omniclaw', 'ssh', 'id_ed25519',
   );
   if (fs.existsSync(sshKeyPath)) {
     const content = fs.readFileSync(sshKeyPath);
@@ -151,7 +151,7 @@ export async function syncFilesToS3(
  * Used to sync agent-modified files (CLAUDE.md) back to host.
  */
 export async function downloadChangedFileFromS3(
-  s3: NanoClawS3,
+  s3: OmniClawS3,
   agentId: string,
   syncKey: string,
   localPath: string,

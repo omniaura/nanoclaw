@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# When running as host uid (--user 501:20), there's no /etc/passwd entry.
+# Many tools (claude, git, ssh-keygen) need to resolve the current user.
+if ! id -un &>/dev/null 2>&1; then
+  echo "omniclaw:x:$(id -u):$(id -g):OmniClaw Agent:${HOME:-/home/bun}:/bin/bash" >> /etc/passwd
+fi
+
 # Source environment variables from mounted env file
 [ -f /workspace/env-dir/env ] && export $(cat /workspace/env-dir/env | xargs)
 
@@ -17,8 +23,8 @@ export GOMEMLIMIT=$(( TOTAL_KB * 3 / 4 / 1024 ))MiB
 # Configure git with GitHub token
 if [ -n "$GITHUB_TOKEN" ]; then
   gh auth setup-git 2>/dev/null || true
-  git config --global user.name "${GIT_AUTHOR_NAME:-NanoClaw Agent}"
-  git config --global user.email "${GIT_AUTHOR_EMAIL:-nanoclaw@users.noreply.github.com}"
+  git config --global user.name "${GIT_AUTHOR_NAME:-OmniClaw Agent}"
+  git config --global user.email "${GIT_AUTHOR_EMAIL:-omniclaw@users.noreply.github.com}"
 
   # Authenticate Graphite CLI if available and not already authenticated
   if command -v gt &> /dev/null; then

@@ -42,7 +42,7 @@ log "Building TypeScript"
 if ! npm run build >> "$LOG_FILE" 2>&1; then
   log "Build failed"
   cat <<EOF
-=== NANOCLAW SETUP: SETUP_SERVICE ===
+=== OMNICLAW SETUP: SETUP_SERVICE ===
 SERVICE_TYPE: unknown
 NODE_PATH: $NODE_PATH
 PROJECT_PATH: $PROJECT_PATH
@@ -60,7 +60,7 @@ mkdir -p "$PROJECT_PATH/logs"
 case "$PLATFORM" in
 
   macos)
-    PLIST_PATH="$HOME_PATH/Library/LaunchAgents/com.nanoclaw.plist"
+    PLIST_PATH="$HOME_PATH/Library/LaunchAgents/com.omniclaw.plist"
     log "Generating launchd plist at $PLIST_PATH"
 
     mkdir -p "$HOME_PATH/Library/LaunchAgents"
@@ -71,7 +71,7 @@ case "$PLATFORM" in
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.nanoclaw</string>
+    <string>com.omniclaw</string>
     <key>ProgramArguments</key>
     <array>
         <string>${NODE_PATH}</string>
@@ -91,9 +91,9 @@ case "$PLATFORM" in
         <string>${HOME_PATH}</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>${PROJECT_PATH}/logs/nanoclaw.log</string>
+    <string>${PROJECT_PATH}/logs/omniclaw.log</string>
     <key>StandardErrorPath</key>
-    <string>${PROJECT_PATH}/logs/nanoclaw.error.log</string>
+    <string>${PROJECT_PATH}/logs/omniclaw.error.log</string>
 </dict>
 </plist>
 PLISTEOF
@@ -107,7 +107,7 @@ PLISTEOF
 
     # Verify
     SERVICE_LOADED="false"
-    if launchctl list 2>/dev/null | grep -q "com.nanoclaw"; then
+    if launchctl list 2>/dev/null | grep -q "com.omniclaw"; then
       SERVICE_LOADED="true"
       log "Service verified as loaded"
     else
@@ -115,7 +115,7 @@ PLISTEOF
     fi
 
     cat <<EOF
-=== NANOCLAW SETUP: SETUP_SERVICE ===
+=== OMNICLAW SETUP: SETUP_SERVICE ===
 SERVICE_TYPE: launchd
 NODE_PATH: $NODE_PATH
 PROJECT_PATH: $PROJECT_PATH
@@ -129,13 +129,13 @@ EOF
 
   linux)
     UNIT_DIR="$HOME_PATH/.config/systemd/user"
-    UNIT_PATH="$UNIT_DIR/nanoclaw.service"
+    UNIT_PATH="$UNIT_DIR/omniclaw.service"
     mkdir -p "$UNIT_DIR"
     log "Generating systemd unit at $UNIT_PATH"
 
     cat > "$UNIT_PATH" <<UNITEOF
 [Unit]
-Description=NanoClaw Personal Assistant
+Description=OmniClaw Personal Assistant
 After=network.target
 
 [Service]
@@ -146,8 +146,8 @@ Restart=always
 RestartSec=5
 Environment=HOME=${HOME_PATH}
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:${HOME_PATH}/.local/bin
-StandardOutput=append:${PROJECT_PATH}/logs/nanoclaw.log
-StandardError=append:${PROJECT_PATH}/logs/nanoclaw.error.log
+StandardOutput=append:${PROJECT_PATH}/logs/omniclaw.log
+StandardError=append:${PROJECT_PATH}/logs/omniclaw.error.log
 
 [Install]
 WantedBy=default.target
@@ -155,12 +155,12 @@ UNITEOF
 
     log "Enabling and starting systemd service"
     systemctl --user daemon-reload >> "$LOG_FILE" 2>&1 || true
-    systemctl --user enable nanoclaw >> "$LOG_FILE" 2>&1 || true
-    systemctl --user start nanoclaw >> "$LOG_FILE" 2>&1 || true
+    systemctl --user enable omniclaw >> "$LOG_FILE" 2>&1 || true
+    systemctl --user start omniclaw >> "$LOG_FILE" 2>&1 || true
 
     # Verify
     SERVICE_LOADED="false"
-    if systemctl --user is-active nanoclaw >/dev/null 2>&1; then
+    if systemctl --user is-active omniclaw >/dev/null 2>&1; then
       SERVICE_LOADED="true"
       log "Service verified as active"
     else
@@ -168,7 +168,7 @@ UNITEOF
     fi
 
     cat <<EOF
-=== NANOCLAW SETUP: SETUP_SERVICE ===
+=== OMNICLAW SETUP: SETUP_SERVICE ===
 SERVICE_TYPE: systemd
 NODE_PATH: $NODE_PATH
 PROJECT_PATH: $PROJECT_PATH
@@ -183,7 +183,7 @@ EOF
   *)
     log "Unsupported platform: $PLATFORM"
     cat <<EOF
-=== NANOCLAW SETUP: SETUP_SERVICE ===
+=== OMNICLAW SETUP: SETUP_SERVICE ===
 SERVICE_TYPE: unknown
 NODE_PATH: $NODE_PATH
 PROJECT_PATH: $PROJECT_PATH

@@ -37,7 +37,7 @@ bun scripts/restore-quarterplan.ts 2026-02-14T23-57-38-025Z
 
 ## Automated Backups
 
-The NanoClaw heartbeat automatically runs backups every 6 hours via scheduled task:
+The OmniClaw heartbeat automatically runs backups every 6 hours via scheduled task:
 
 ```typescript
 schedule_task({
@@ -59,7 +59,7 @@ export S3_SECRET_ACCESS_KEY="your-secret-access-key"
 export S3_REGION="us-east-005"  # Optional, defaults to us-east-005
 ```
 
-**For NanoClaw agents**, these are automatically available from the container environment.
+**For OmniClaw agents**, these are automatically available from the container environment.
 
 **For local testing**, add them to your shell profile or create a `.env` file:
 
