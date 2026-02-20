@@ -1,5 +1,5 @@
 /**
- * Sprites Provisioning for NanoClaw
+ * Sprites Provisioning for OmniClaw
  * Handles first-time setup of a Sprite: installing bun, claude-code,
  * agent-browser dependencies, chromium, gh CLI, and workspace dirs.
  */
@@ -11,7 +11,7 @@ type SpriteHandle = {
   exec(cmd: string, opts?: { timeout?: number }): Promise<{ stdout: string; stderr: string }>;
 };
 
-const PROVISION_MARKER = '/workspace/.nanoclaw-provisioned';
+const PROVISION_MARKER = '/workspace/.omniclaw-provisioned';
 
 /**
  * Check if a Sprite has already been provisioned.
@@ -26,7 +26,7 @@ export async function isProvisioned(sprite: SpriteHandle): Promise<boolean> {
 }
 
 /**
- * Provision a Sprite with all dependencies needed to run NanoClaw agent-runner.
+ * Provision a Sprite with all dependencies needed to run OmniClaw agent-runner.
  * This is idempotent — skips if already provisioned.
  */
 export async function provisionSprite(sprite: SpriteHandle, spriteName: string): Promise<void> {

@@ -1,5 +1,5 @@
 /**
- * Daytona IPC Poller for NanoClaw
+ * Daytona IPC Poller for OmniClaw
  * Polls IPC directories on Daytona sandboxes for messages and tasks,
  * analogous to sprites-ipc-poller.ts but using the Daytona SDK.
  *

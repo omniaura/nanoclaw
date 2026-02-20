@@ -1,5 +1,5 @@
 /**
- * Sprites Backend for NanoClaw
+ * Sprites Backend for OmniClaw
  * Runs agents on persistent Fly.io Sprites (cloud VMs).
  * Each group gets its own long-lived Sprite.
  */
@@ -215,7 +215,7 @@ export class SpritesBackend implements AgentBackend {
   private getSpriteClient(groupFolder: string): SpriteClient {
     let client = this.sprites.get(groupFolder);
     if (!client) {
-      const spriteName = `nanoclaw-${groupFolder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+      const spriteName = `omniclaw-${groupFolder.replace(/[^a-zA-Z0-9-]/g, '-')}`;
       client = new SpriteClient(SPRITES_TOKEN, spriteName);
       this.sprites.set(groupFolder, client);
     }

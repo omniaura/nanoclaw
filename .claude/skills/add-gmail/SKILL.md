@@ -1,11 +1,11 @@
 ---
 name: add-gmail
-description: Add Gmail integration to NanoClaw. Can be configured as a tool (agent reads/sends emails when triggered from WhatsApp) or as a full channel (emails can trigger the agent, schedule tasks, and receive replies). Guides through GCP OAuth setup and implements the integration.
+description: Add Gmail integration to OmniClaw. Can be configured as a tool (agent reads/sends emails when triggered from WhatsApp) or as a full channel (emails can trigger the agent, schedule tasks, and receive replies). Guides through GCP OAuth setup and implements the integration.
 ---
 
 # Add Gmail Integration
 
-This skill adds Gmail capabilities to NanoClaw. It can be configured in two modes:
+This skill adds Gmail capabilities to OmniClaw. It can be configured in two modes:
 
 1. **Tool Mode** - Agent can read/send emails, but only when triggered from WhatsApp
 2. **Channel Mode** - Emails can trigger the agent, schedule tasks, and receive email replies
@@ -14,7 +14,7 @@ This skill adds Gmail capabilities to NanoClaw. It can be configured in two mode
 
 Ask the user:
 
-> How do you want to use Gmail with NanoClaw?
+> How do you want to use Gmail with OmniClaw?
 >
 > **Option 1: Tool Mode**
 > - Agent can read and send emails when you ask it to
@@ -74,9 +74,9 @@ Wait for user confirmation, then continue:
 >    - Go to **APIs & Services → Credentials** (in the left sidebar)
 >    - Click **+ CREATE CREDENTIALS** at the top
 >    - Select **OAuth client ID**
->    - If prompted for consent screen, choose "External", fill in app name (e.g., "NanoClaw"), your email, and save
+>    - If prompted for consent screen, choose "External", fill in app name (e.g., "OmniClaw"), your email, and save
 >    - For Application type, select **Desktop app**
->    - Name it anything (e.g., "NanoClaw Gmail")
+>    - Name it anything (e.g., "OmniClaw Gmail")
 >    - Click **Create**
 
 Wait for user confirmation, then continue:
@@ -179,14 +179,14 @@ The result should look like:
 
 ```typescript
 mcpServers: {
-  nanoclaw: ipcMcp,
+  omniclaw: ipcMcp,
   gmail: { command: 'npx', args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'] }
 },
 allowedTools: [
   'Bash',
   'Read', 'Write', 'Edit', 'Glob', 'Grep',
   'WebSearch', 'WebFetch',
-  'mcp__nanoclaw__*',
+  'mcp__omniclaw__*',
   'mcp__gmail__*'
 ],
 ```
@@ -246,13 +246,13 @@ cd .. && npm run build
 Wait for TypeScript compilation, then restart the service:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+launchctl kickstart -k gui/$(id -u)/com.omniclaw
 ```
 
 Check that it started:
 
 ```bash
-sleep 2 && launchctl list | grep nanoclaw
+sleep 2 && launchctl list | grep omniclaw
 ```
 
 ### Step 5: Test Gmail Integration
@@ -270,7 +270,7 @@ Tell the user:
 Watch the logs for any errors:
 
 ```bash
-tail -f logs/nanoclaw.log
+tail -f logs/omniclaw.log
 ```
 
 ---
@@ -286,7 +286,7 @@ Ask the user:
 > How should the agent be triggered from email?
 >
 > **Option A: Specific Label**
-> - Create a Gmail label (e.g., "NanoClaw")
+> - Create a Gmail label (e.g., "OmniClaw")
 > - Emails with this label trigger the agent
 > - You manually label emails or set up Gmail filters
 >
@@ -341,7 +341,7 @@ Read `src/config.ts` and add this configuration (customize values based on user'
 export const EMAIL_CHANNEL: EmailChannelConfig = {
   enabled: true,
   triggerMode: 'label',  // or 'address' or 'subject'
-  triggerValue: 'NanoClaw',  // the label name, address pattern, or prefix
+  triggerValue: 'OmniClaw',  // the label name, address pattern, or prefix
   contextMode: 'thread',
   pollIntervalMs: 60000,  // Check every minute
   replyPrefix: '[Andy] '
@@ -651,13 +651,13 @@ cd .. && npm run build
 Restart the service:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+launchctl kickstart -k gui/$(id -u)/com.omniclaw
 ```
 
 Verify it started and check for email channel startup message:
 
 ```bash
-sleep 3 && tail -20 logs/nanoclaw.log | grep -i email
+sleep 3 && tail -20 logs/omniclaw.log | grep -i email
 ```
 
 Tell the user:
@@ -672,7 +672,7 @@ Tell the user:
 Monitor for the test:
 
 ```bash
-tail -f logs/nanoclaw.log | grep -E "(email|Email)"
+tail -f logs/omniclaw.log | grep -E "(email|Email)"
 ```
 
 ---
@@ -726,5 +726,5 @@ To remove Gmail entirely:
    ```bash
    cd container && ./build.sh && cd ..
    npm run build
-   launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+   launchctl kickstart -k gui/$(id -u)/com.omniclaw
    ```

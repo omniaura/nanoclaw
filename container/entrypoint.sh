@@ -17,8 +17,8 @@ export GOMEMLIMIT=$(( TOTAL_KB * 3 / 4 / 1024 ))MiB
 # Configure git with GitHub token
 if [ -n "$GITHUB_TOKEN" ]; then
   gh auth setup-git 2>/dev/null || true
-  git config --global user.name "${GIT_AUTHOR_NAME:-NanoClaw Agent}"
-  git config --global user.email "${GIT_AUTHOR_EMAIL:-nanoclaw@users.noreply.github.com}"
+  git config --global user.name "${GIT_AUTHOR_NAME:-OmniClaw Agent}"
+  git config --global user.email "${GIT_AUTHOR_EMAIL:-omniclaw@users.noreply.github.com}"
 
   # Authenticate Graphite CLI if available and not already authenticated
   if command -v gt &> /dev/null; then

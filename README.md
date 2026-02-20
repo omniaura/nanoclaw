@@ -1,33 +1,25 @@
 <p align="center">
-  <img src="assets/nanoclaw-logo.png" alt="OmniClaw" width="400">
+  <img src="assets/omniclaw-logo.png" alt="OmniClaw" width="400">
 </p>
 
 <p align="center">
-  Personal Claude assistant from the Omni ecosystem. Runs securely in containers with filesystem isolation. Fork of NanoClaw, maintained by OmniAura.
+  Personal Claude assistant from the Omni ecosystem. Runs securely in containers with filesystem isolation.
 </p>
 
 <p align="center">
-  <a href="https://github.com/omniaura/nanoclaw">GitHub</a>&nbsp; • &nbsp;
+  <a href="https://github.com/omniaura/omniclaw">GitHub</a>&nbsp; • &nbsp;
   <a href="https://discord.gg/VGWXrf8x"><img src="https://img.shields.io/discord/1470188214710046894?label=Discord&logo=discord&v=2" alt="Discord" valign="middle"></a>
 </p>
 
-**OmniClaw** is a fork of [NanoClaw](https://github.com/openclaw/nanoclaw) with enhancements for the OmniAura ecosystem. Built for security, simplicity, and extensibility.
-
-## Why This Fork
-
-OmniClaw builds on NanoClaw's foundation with:
-- **Effect.ts integration** for reliable message queue with retries and timeouts
-- **Enhanced error handling** with typed failures and automatic fallbacks
-- **Configurable branding** via environment variables
-- **Multi-agent orchestration** for the Omni ecosystem (Ditto integration, Discord channels, etc.)
+**OmniClaw** is a personal Claude assistant built for security, simplicity, and extensibility.
 
 One process. A handful of files. Agents run in actual Linux containers with filesystem isolation, not behind permission checks.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/omniaura/nanoclaw.git
-cd nanoclaw
+git clone https://github.com/omniaura/omniclaw.git
+cd omniclaw
 claude
 ```
 
@@ -94,7 +86,7 @@ The codebase is small enough that Claude can safely modify it.
 
 **Don't add features. Add skills.**
 
-If you want to add Telegram support, don't create a PR that adds Telegram alongside WhatsApp. Instead, contribute a skill file (`.claude/skills/add-telegram/SKILL.md`) that teaches Claude Code how to transform an OmniClaw installation to use Telegram.
+If you want to add Telegram support, don't create a PR that adds Telegram alongside WhatsApp. Instead, contribute a skill file (`.claude/skills/add-telegram/SKILL.md`) that teaches Claude Code how to transform your OmniClaw installation to use Telegram.
 
 Users then run `/add-telegram` on their fork and get clean code that does exactly what they need, not a bloated system trying to support every use case.
 

@@ -1,5 +1,5 @@
 /**
- * S3 message types for NanoClaw B2 storage bus.
+ * S3 message types for OmniClaw B2 storage bus.
  * Used for agent inbox/outbox communication via Backblaze B2 (S3-compatible).
  */
 

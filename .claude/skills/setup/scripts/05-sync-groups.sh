@@ -22,7 +22,7 @@ if npm run build >> "$LOG_FILE" 2>&1; then
 else
   log "Build failed"
   cat <<EOF
-=== NANOCLAW SETUP: SYNC_GROUPS ===
+=== OMNICLAW SETUP: SYNC_GROUPS ===
 BUILD: failed
 SYNC: skipped
 GROUPS_IN_DB: 0
@@ -127,7 +127,7 @@ if [ "$SYNC" != "success" ]; then
 fi
 
 cat <<EOF
-=== NANOCLAW SETUP: SYNC_GROUPS ===
+=== OMNICLAW SETUP: SYNC_GROUPS ===
 BUILD: $BUILD
 SYNC: $SYNC
 GROUPS_IN_DB: $GROUPS_IN_DB

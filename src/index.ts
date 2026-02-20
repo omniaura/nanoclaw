@@ -60,7 +60,7 @@ import { getCloudAgentIds } from './agents.js';
 import { resolveAgentForChannel, buildAgentToChannelsMap } from './channel-routes.js';
 import { GroupQueue } from './group-queue.js';
 import { consumeShareRequest, startIpcWatcher } from './ipc.js';
-import { NanoClawS3 } from './s3/client.js';
+import { OmniClawS3 } from './s3/client.js';
 import { startS3IpcPoller } from './s3/ipc-poller.js';
 import { findChannel, formatMessages, formatOutbound, getAgentName } from './router.js';
 import { reconcileHeartbeats, startSchedulerLoop } from './task-scheduler.js';
@@ -74,7 +74,7 @@ import { Effect } from 'effect';
 export { escapeXml, formatMessages } from './router.js';
 
 // Global error handlers to prevent crashes from unhandled rejections/exceptions
-// See: https://github.com/qwibitai/nanoclaw/issues/221
+// See: https://github.com/omniaura/omniclaw/issues/221
 // Adopted from [Upstream PR #243] - Critical stability fix
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(
@@ -131,7 +131,7 @@ const MAX_CONSECUTIVE_ERRORS = 3;
 
 let whatsapp: WhatsAppChannel;
 let channels: Channel[] = [];
-let s3: NanoClawS3 | null = null;
+let s3: OmniClawS3 | null = null;
 const queue = new GroupQueue();
 
 function loadState(): void {
@@ -776,7 +776,7 @@ async function startMessageLoop(): Promise<void> {
   }
   messageLoopRunning = true;
 
-  logger.info(`NanoClaw running (trigger: @${ASSISTANT_NAME})`);
+  logger.info(`OmniClaw running (trigger: @${ASSISTANT_NAME})`);
 
   while (true) {
     try {
@@ -956,7 +956,7 @@ async function main(): Promise<void> {
 
   // Initialize S3 client if B2 is configured
   if (B2_ENDPOINT) {
-    s3 = new NanoClawS3({
+    s3 = new OmniClawS3({
       endpoint: B2_ENDPOINT,
       accessKeyId: B2_ACCESS_KEY_ID,
       secretAccessKey: B2_SECRET_ACCESS_KEY,
@@ -1421,7 +1421,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   main().catch((err) => {
-    logger.error({ err }, 'Failed to start NanoClaw');
+    logger.error({ err }, 'Failed to start OmniClaw');
     process.exit(1);
   });
 }

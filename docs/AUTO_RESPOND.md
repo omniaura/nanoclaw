@@ -1,6 +1,6 @@
 # Smart Auto-Respond
 
-By default, NanoClaw only responds when explicitly mentioned with the trigger word (e.g., `@Omni`). This prevents the bot from responding to every message in group chats.
+By default, OmniClaw only responds when explicitly mentioned with the trigger word (e.g., `@Omni`). This prevents the bot from responding to every message in group chats.
 
 However, you can configure groups to auto-respond based on message content without requiring explicit mentions.
 

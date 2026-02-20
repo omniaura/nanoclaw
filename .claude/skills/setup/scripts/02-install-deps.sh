@@ -20,7 +20,7 @@ if npm install >> "$LOG_FILE" 2>&1; then
 else
   log "npm install failed"
   cat <<EOF
-=== NANOCLAW SETUP: INSTALL_DEPS ===
+=== OMNICLAW SETUP: INSTALL_DEPS ===
 PACKAGES: failed
 STATUS: failed
 ERROR: npm_install_failed
@@ -41,7 +41,7 @@ done
 if [ -n "$MISSING" ]; then
   log "Missing packages after install:$MISSING"
   cat <<EOF
-=== NANOCLAW SETUP: INSTALL_DEPS ===
+=== OMNICLAW SETUP: INSTALL_DEPS ===
 PACKAGES: failed
 STATUS: failed
 ERROR: missing_packages:$MISSING
@@ -54,7 +54,7 @@ fi
 log "All key packages verified"
 
 cat <<EOF
-=== NANOCLAW SETUP: INSTALL_DEPS ===
+=== OMNICLAW SETUP: INSTALL_DEPS ===
 PACKAGES: installed
 STATUS: success
 LOG: logs/setup.log

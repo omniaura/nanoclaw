@@ -1,4 +1,4 @@
-# NanoClaw
+# OmniClaw
 
 Personal Claude assistant. See [README.md](README.md) for philosophy and setup. See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for architecture decisions.
 
@@ -47,8 +47,8 @@ bun run build        # Compile TypeScript
 
 Service management:
 ```bash
-launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
-launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist
+launchctl load ~/Library/LaunchAgents/com.omniclaw.plist
+launchctl unload ~/Library/LaunchAgents/com.omniclaw.plist
 ```
 
 ## Container Build Cache
@@ -60,30 +60,19 @@ container builder stop && container builder rm && container builder start
 ./container/build.sh
 ```
 
-Always verify after rebuild: `container run -i --rm --entrypoint wc nanoclaw-agent:latest -l /app/src/index.ts`
+Always verify after rebuild: `container run -i --rm --entrypoint wc omniclaw-agent:latest -l /app/src/index.ts`
 
 ## Git Remotes & Pull Requests
 
-This repo is a **fork** (`omniaura/nanoclaw`) of the upstream (`qwibitai/nanoclaw`).
+This repo is `omniaura/omniclaw`. Always pass `--repo omniaura/omniclaw --base main` when creating PRs with `gh pr create`.
 
-- `origin` = `omniaura/nanoclaw` (our fork)
-- `upstream` = `qwibitai/nanoclaw` (the original)
-
-**NEVER open PRs directly against `qwibitai/nanoclaw` from our working branches.** Our fork has diverged (Bun runtime, Omni naming, custom integrations) — pushing fork-specific changes upstream is embarrassing and wrong.
-
-When the user asks to "make a PR":
-1. **Default:** PR goes to `origin` (our fork). Merge to our `main`.
-2. **Upstream PR:** Must be done separately. Create a dedicated branch off `upstream/main`, apply only the generic changes (no Omni references, no fork-specific code like bun:sqlite, email-channel, etc.), and PR from `omniaura:<branch>` → `qwibitai/nanoclaw:main`.
-
-Always confirm which target the user intends if it's ambiguous.
-
-**Common mistake:** `gh pr create` without `--repo omniaura/nanoclaw` defaults to the **upstream** (`qwibitai/nanoclaw`) because GitHub's fork metadata makes `gh` treat upstream as the default base. Always pass `--repo omniaura/nanoclaw --base main` explicitly when creating PRs for our fork.
+We still passively monitor the original upstream (`qwibitai/nanoclaw`) for security fixes and interesting features via `.github/workflows/upstream-sync.yml`, but we don't open PRs against it.
 
 ## Public Repo Awareness
 
 This is an **open-source public repository** that others clone to run their own assistants on completely different projects. When making changes for Peyton's personal setup:
 
 - **NEVER edit templates or checked-in files** (e.g. `groups/main/CLAUDE.md.template`, `groups/global/CLAUDE.md.template`, source code, skills) with user-specific content like project names, directory paths, personal preferences, or org-specific details.
-- **Personal config goes in runtime files** that are gitignored: `groups/main/CLAUDE.md`, `groups/global/CLAUDE.md`, `.env`, `data/`, `store/`, `~/.config/nanoclaw/`.
+- **Personal config goes in runtime files** that are gitignored: `groups/main/CLAUDE.md`, `groups/global/CLAUDE.md`, `.env`, `data/`, `store/`, `~/.config/omniclaw/`.
 - **Templates are starting points** for all users. They should remain generic and project-agnostic.
 - When in doubt, check `.gitignore` — if a file is tracked by git, treat it as public.

@@ -25,9 +25,9 @@ esac
 # 1. Check service status
 SERVICE="not_found"
 if [ "$PLATFORM" = "macos" ]; then
-  if launchctl list 2>/dev/null | grep -q "com.nanoclaw"; then
+  if launchctl list 2>/dev/null | grep -q "com.omniclaw"; then
     # Check if it has a PID (actually running)
-    LAUNCHCTL_LINE=$(launchctl list 2>/dev/null | grep "com.nanoclaw" || true)
+    LAUNCHCTL_LINE=$(launchctl list 2>/dev/null | grep "com.omniclaw" || true)
     PID_FIELD=$(echo "$LAUNCHCTL_LINE" | awk '{print $1}')
     if [ "$PID_FIELD" != "-" ] && [ -n "$PID_FIELD" ]; then
       SERVICE="running"
@@ -36,9 +36,9 @@ if [ "$PLATFORM" = "macos" ]; then
     fi
   fi
 elif [ "$PLATFORM" = "linux" ]; then
-  if systemctl --user is-active nanoclaw >/dev/null 2>&1; then
+  if systemctl --user is-active omniclaw >/dev/null 2>&1; then
     SERVICE="running"
-  elif systemctl --user list-unit-files 2>/dev/null | grep -q "nanoclaw"; then
+  elif systemctl --user list-unit-files 2>/dev/null | grep -q "omniclaw"; then
     SERVICE="stopped"
   fi
 fi
@@ -78,7 +78,7 @@ log "Registered groups: $REGISTERED_GROUPS"
 
 # 6. Check mount allowlist
 MOUNT_ALLOWLIST="missing"
-if [ -f "$HOME/.config/nanoclaw/mount-allowlist.json" ]; then
+if [ -f "$HOME/.config/omniclaw/mount-allowlist.json" ]; then
   MOUNT_ALLOWLIST="configured"
 fi
 log "Mount allowlist: $MOUNT_ALLOWLIST"
@@ -92,7 +92,7 @@ fi
 log "Verification complete: $STATUS"
 
 cat <<EOF
-=== NANOCLAW SETUP: VERIFY ===
+=== OMNICLAW SETUP: VERIFY ===
 SERVICE: $SERVICE
 CONTAINER_RUNTIME: $CONTAINER_RUNTIME
 CREDENTIALS: $CREDENTIALS

@@ -1,11 +1,11 @@
 ---
 name: add-graphite
-description: Add Graphite CLI to NanoClaw container and configure authentication. Installs Graphite for stacked PRs workflow and handles pre-authorization.
+description: Add Graphite CLI to OmniClaw container and configure authentication. Installs Graphite for stacked PRs workflow and handles pre-authorization.
 ---
 
 # Add Graphite CLI
 
-This skill adds Graphite CLI support to NanoClaw by updating the Dockerfile template and pre-authorizing the CLI inside the container.
+This skill adds Graphite CLI support to OmniClaw by updating the Dockerfile template and pre-authorizing the CLI inside the container.
 
 Graphite CLI enables stacked pull requests workflow, making it easier to manage complex PR chains and keep work organized.
 
@@ -41,7 +41,7 @@ Also check if it's already available in a running container by trying to exec in
 
 ```bash
 # Find a running container
-CONTAINER=$(docker ps --filter "label=nanoclaw.group" --format "{{.Names}}" | head -1)
+CONTAINER=$(docker ps --filter "label=omniclaw.group" --format "{{.Names}}" | head -1)
 if [ -n "$CONTAINER" ]; then
   docker exec "$CONTAINER" which gt && echo "Graphite already installed" || echo "Not installed"
 fi
@@ -81,7 +81,7 @@ cd container && ./build.sh
 
 ### 4. Get GitHub Authentication Token
 
-Graphite CLI needs to authenticate with GitHub. It uses the same GitHub token as the rest of NanoClaw.
+Graphite CLI needs to authenticate with GitHub. It uses the same GitHub token as the rest of OmniClaw.
 
 Check if `GITHUB_TOKEN` is set:
 
@@ -97,7 +97,7 @@ fi
 
 Tell the user:
 
-> Graphite needs a GitHub token to authenticate. You can use the same token configured for NanoClaw.
+> Graphite needs a GitHub token to authenticate. You can use the same token configured for OmniClaw.
 >
 > If you haven't set up GitHub integration yet:
 > 1. Go to https://github.com/settings/tokens (click **Tokens (classic)**)
@@ -125,7 +125,7 @@ No manual auth steps needed! The authentication is built into `container/entrypo
 After rebuilding and restarting, verify Graphite works by checking container logs:
 
 ```bash
-tail -f logs/nanoclaw.log
+tail -f logs/omniclaw.log
 ```
 
 You should see Graphite authentication messages when containers start.
@@ -134,7 +134,7 @@ To manually verify in a running container:
 
 ```bash
 # Find a running container
-CONTAINER=$(docker ps --filter "label=nanoclaw.group" --format "{{.Names}}" | head -1)
+CONTAINER=$(docker ps --filter "label=omniclaw.group" --format "{{.Names}}" | head -1)
 
 # Check Graphite version and auth status
 docker exec "$CONTAINER" gt --version
@@ -178,7 +178,7 @@ Graphite installation didn't work or binary isn't in PATH.
 Fix:
 ```bash
 # Manually install in running container
-CONTAINER=$(docker ps --filter "label=nanoclaw.group" --format "{{.Names}}" | head -1)
+CONTAINER=$(docker ps --filter "label=omniclaw.group" --format "{{.Names}}" | head -1)
 docker exec "$CONTAINER" bash -c "curl -fsSL https://graphite.dev/install.sh | sh && mv /root/.graphite/bin/gt /usr/local/bin/"
 ```
 
@@ -194,7 +194,7 @@ After rebuilding the image, existing containers need to be recreated.
 
 Restart the service:
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+launchctl kickstart -k gui/$(id -u)/com.omniclaw
 ```
 
 This will spawn new containers with the updated image.
@@ -206,11 +206,11 @@ Graphite stores config in `~/.graphite/`. To persist config across container rec
 1. Add a volume mount for Graphite config in your container config
 2. Or configure it via environment variables (check Graphite docs for supported vars)
 
-For NanoClaw, since containers are ephemeral, the auth token approach (re-authing on boot if needed) is recommended.
+For OmniClaw, since containers are ephemeral, the auth token approach (re-authing on boot if needed) is recommended.
 
 ## Related Skills
 
-- `/setup` - Initial NanoClaw setup
+- `/setup` - Initial OmniClaw setup
 - `/customize` - Customize Dockerfile and container settings
 
 ## Removal
@@ -219,4 +219,4 @@ To remove Graphite:
 
 1. Remove the Graphite installation section from `container/Dockerfile`
 2. Rebuild: `cd container && ./build.sh`
-3. Restart service: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw`
+3. Restart service: `launchctl kickstart -k gui/$(id -u)/com.omniclaw`

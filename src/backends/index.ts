@@ -1,5 +1,5 @@
 /**
- * Backend factory and resolution for NanoClaw.
+ * Backend factory and resolution for OmniClaw.
  * Routes groups to the appropriate backend based on configuration.
  */
 

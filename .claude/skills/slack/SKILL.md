@@ -9,7 +9,7 @@ This skill provides Slack integration using a TypeScript/Bun script.
 - Post replies to threads
 - Fetch channel history
 - List all accessible channels
-- Standalone TypeScript implementation (no NanoClaw core modifications needed)
+- Standalone TypeScript implementation (no OmniClaw core modifications needed)
 
 ## Usage
 
@@ -20,7 +20,7 @@ All Slack operations are handled through `slack.ts` using Bun:
 bun run slack.ts read --channel C123456 --limit 10
 
 # Send a message to a channel
-bun run slack.ts send --channel C123456 --text "Hello from NanoClaw!"
+bun run slack.ts send --channel C123456 --text "Hello from OmniClaw!"
 
 # Reply to a thread
 bun run slack.ts reply --channel C123456 --thread-ts 1234567890.123456 --text "Reply text"
@@ -65,18 +65,18 @@ bun install
 Dependencies (in `package.json`):
 - `@slack/web-api` - Official Slack Web API client for TypeScript
 
-## Integration with NanoClaw
+## Integration with OmniClaw
 
-This skill can be invoked from NanoClaw agents to:
+This skill can be invoked from OmniClaw agents to:
 - Monitor Slack channels for mentions
 - Post agent responses back to Slack
 - Enable cross-platform communication (WhatsApp ↔ Slack)
 
-Example NanoClaw integration:
+Example OmniClaw integration:
 ```typescript
 import { $ } from 'bun';
 
-// Call from NanoClaw agent
+// Call from OmniClaw agent
 const result = await $`bun run .claude/skills/slack/slack.ts send --channel ${channelId} --text ${message}`.json();
 console.log(result); // { ok: true, ts: "1234567890.123456", channel: "C123456" }
 ```
@@ -84,11 +84,11 @@ console.log(result); // { ok: true, ts: "1234567890.123456", channel: "C123456" 
 ## Architecture
 
 Unlike the PR #5 approach (full TypeScript integration), this skill:
-- ✅ No modifications to NanoClaw core codebase
+- ✅ No modifications to OmniClaw core codebase
 - ✅ Standalone Bun/TypeScript script
 - ✅ Simple CLI interface for easy testing
-- ✅ Can be invoked from any NanoClaw agent or skill
-- ✅ Same language as NanoClaw (TypeScript) - easier to maintain
+- ✅ Can be invoked from any OmniClaw agent or skill
+- ✅ Same language as OmniClaw (TypeScript) - easier to maintain
 - ✅ Uses Bun's fast runtime and built-in utilities
 
 ## Files

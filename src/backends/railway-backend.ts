@@ -1,5 +1,5 @@
 /**
- * Railway Backend for NanoClaw
+ * Railway Backend for OmniClaw
  * Runs agents on Railway cloud services with S3-based I/O.
  * Lifecycle: sync to B2 → write inbox → ensure service running → poll outbox.
  *
@@ -20,7 +20,7 @@ import {
 } from '../config.js';
 import { logger } from '../logger.js';
 import { ContainerProcess } from '../types.js';
-import { NanoClawS3 } from '../s3/client.js';
+import { OmniClawS3 } from '../s3/client.js';
 import { syncFilesToS3 } from '../s3/file-sync.js';
 import type { S3Message, S3Output } from '../s3/types.js';
 import {
@@ -45,7 +45,7 @@ class RailwayProcessWrapper implements ContainerProcess {
 
 export class RailwayBackend implements AgentBackend {
   readonly name = 'railway';
-  private s3!: NanoClawS3;
+  private s3!: OmniClawS3;
 
   async runAgent(
     group: AgentOrGroup,
@@ -200,7 +200,7 @@ export class RailwayBackend implements AgentBackend {
       return;
     }
 
-    this.s3 = new NanoClawS3({
+    this.s3 = new OmniClawS3({
       endpoint: B2_ENDPOINT,
       accessKeyId: B2_ACCESS_KEY_ID,
       secretAccessKey: B2_SECRET_ACCESS_KEY,

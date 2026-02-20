@@ -51,7 +51,7 @@ Per the analysis roadmap:
 - Phase 3: Refactor index.ts architecture
 
 ## Related Documents
-- Full complexity analysis: `/workspace/group/nanoclaw-complexity-analysis-2026-02-18.md`
+- Full complexity analysis: `/workspace/group/omniclaw-complexity-analysis-2026-02-18.md`
 - Analysis identified 5 HIGH and 12 MEDIUM severity opportunities
 - This PR addresses: **Issue #8 (Task Scheduler Heartbeat Logic)**
 

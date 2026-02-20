@@ -1,5 +1,5 @@
 /**
- * Hetzner Cloud Backend for NanoClaw
+ * Hetzner Cloud Backend for OmniClaw
  * Runs agents on ephemeral Hetzner Cloud VMs with S3-based I/O.
  * Lifecycle: create VM → sync to B2 → write inbox → wait for VM running → poll outbox → destroy VM.
  *
@@ -25,7 +25,7 @@ import {
 } from '../config.js';
 import { logger } from '../logger.js';
 import { ContainerProcess } from '../types.js';
-import { NanoClawS3 } from '../s3/client.js';
+import { OmniClawS3 } from '../s3/client.js';
 import { syncFilesToS3 } from '../s3/file-sync.js';
 import type { S3Message, S3Output } from '../s3/types.js';
 import {
@@ -55,7 +55,7 @@ interface HetznerServerContext {
 
 export class HetznerBackend implements AgentBackend {
   readonly name = 'hetzner';
-  private s3!: NanoClawS3;
+  private s3!: OmniClawS3;
   private servers = new Map<string, HetznerServerContext>();
 
   async runAgent(
@@ -252,12 +252,12 @@ runcmd:
   - docker pull ${CONTAINER_IMAGE}
   - docker run -d --name ${appName}-agent \\
       -v /root/.ssh:/home/bun/.ssh:ro \\
-      -e NANOCLAW_S3_ENDPOINT=${B2_ENDPOINT} \\
-      -e NANOCLAW_S3_REGION=${B2_REGION} \\
-      -e NANOCLAW_S3_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID} \\
-      -e NANOCLAW_S3_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY} \\
-      -e NANOCLAW_S3_BUCKET=${B2_BUCKET} \\
-      -e NANOCLAW_AGENT_ID=${agentId} \\
+      -e OMNICLAW_S3_ENDPOINT=${B2_ENDPOINT} \\
+      -e OMNICLAW_S3_REGION=${B2_REGION} \\
+      -e OMNICLAW_S3_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID} \\
+      -e OMNICLAW_S3_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY} \\
+      -e OMNICLAW_S3_BUCKET=${B2_BUCKET} \\
+      -e OMNICLAW_AGENT_ID=${agentId} \\
       ${CONTAINER_IMAGE}
 `;
   }
@@ -329,7 +329,7 @@ runcmd:
       return;
     }
 
-    this.s3 = new NanoClawS3({
+    this.s3 = new OmniClawS3({
       endpoint: B2_ENDPOINT,
       region: B2_REGION,
       accessKeyId: B2_ACCESS_KEY_ID,

@@ -1,5 +1,5 @@
 /**
- * Stdio MCP Server for NanoClaw
+ * Stdio MCP Server for OmniClaw
  * Standalone process that agent teams subagents can inherit.
  * Reads context from environment variables, writes IPC files for the host.
  */
@@ -17,17 +17,17 @@ const TASKS_DIR = path.join(IPC_DIR, 'tasks');
 const USER_REGISTRY_PATH = path.join(IPC_DIR, 'user_registry.json');
 
 // Context from environment variables (set by the agent runner)
-const initialChatJid = process.env.NANOCLAW_CHAT_JID!;
-const groupFolder = process.env.NANOCLAW_GROUP_FOLDER!;
-const isMain = process.env.NANOCLAW_IS_MAIN === '1';
-const discordGuildId = process.env.NANOCLAW_DISCORD_GUILD_ID || undefined;
-const serverFolder = process.env.NANOCLAW_SERVER_FOLDER || undefined;
+const initialChatJid = process.env.OMNICLAW_CHAT_JID!;
+const groupFolder = process.env.OMNICLAW_GROUP_FOLDER!;
+const isMain = process.env.OMNICLAW_IS_MAIN === '1';
+const discordGuildId = process.env.OMNICLAW_DISCORD_GUILD_ID || undefined;
+const serverFolder = process.env.OMNICLAW_SERVER_FOLDER || undefined;
 
-// Multi-channel support: parse NANOCLAW_CHANNELS if set
+// Multi-channel support: parse OMNICLAW_CHANNELS if set
 // Intentionally duplicated from src/backends/types.ts — this stdio MCP server runs in
 // an isolated container environment and cannot import from the host's source tree at runtime.
 interface ChannelInfo { id: string; jid: string; name: string; }
-const channelsEnv = process.env.NANOCLAW_CHANNELS;
+const channelsEnv = process.env.OMNICLAW_CHANNELS;
 const channels: ChannelInfo[] = channelsEnv ? (() => {
   try { return JSON.parse(channelsEnv); } catch { return []; }
 })() : [];
@@ -76,12 +76,12 @@ function getCurrentChatJid(): string {
 const chatJid = initialChatJid;
 
 // S3 mode detection
-const S3_ENDPOINT = process.env.NANOCLAW_S3_ENDPOINT || '';
-const S3_ACCESS_KEY_ID = process.env.NANOCLAW_S3_ACCESS_KEY_ID || '';
-const S3_SECRET_ACCESS_KEY = process.env.NANOCLAW_S3_SECRET_ACCESS_KEY || '';
-const S3_BUCKET = process.env.NANOCLAW_S3_BUCKET || '';
-const S3_REGION = process.env.NANOCLAW_S3_REGION || '';
-const S3_AGENT_ID = process.env.NANOCLAW_AGENT_ID || groupFolder;
+const S3_ENDPOINT = process.env.OMNICLAW_S3_ENDPOINT || '';
+const S3_ACCESS_KEY_ID = process.env.OMNICLAW_S3_ACCESS_KEY_ID || '';
+const S3_SECRET_ACCESS_KEY = process.env.OMNICLAW_S3_SECRET_ACCESS_KEY || '';
+const S3_BUCKET = process.env.OMNICLAW_S3_BUCKET || '';
+const S3_REGION = process.env.OMNICLAW_S3_REGION || '';
+const S3_AGENT_ID = process.env.OMNICLAW_AGENT_ID || groupFolder;
 const IS_S3_MODE = !!S3_ENDPOINT;
 
 let s3Client: any = null;
@@ -171,7 +171,7 @@ function writeIpcFile(dir: string, data: object): string {
 }
 
 const server = new McpServer({
-  name: 'nanoclaw',
+  name: 'omniclaw',
   version: '1.0.0',
 });
 
@@ -661,7 +661,7 @@ server.tool(
 
 server.tool(
   'list_agents',
-  `List all registered agents in the NanoClaw system. Use this to discover available agents for communication.
+  `List all registered agents in the OmniClaw system. Use this to discover available agents for communication.
 
 Returns information about each agent including their ID, name, description, backend type, and JID (for messaging).
 This is useful when you need to send messages to specific agents or request context from them.`,

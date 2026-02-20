@@ -1,6 +1,6 @@
 # Effect.ts POC - Message Queue
 
-This directory contains a proof-of-concept implementation of Effect.ts for NanoClaw's message queue system.
+This directory contains a proof-of-concept implementation of Effect.ts for OmniClaw's message queue system.
 
 ## What This Demonstrates
 

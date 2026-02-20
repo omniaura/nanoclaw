@@ -1,5 +1,5 @@
 /**
- * Shared S3 Client for NanoClaw
+ * Shared S3 Client for OmniClaw
  * Reusable S3 client wrapper for Backblaze B2
  * Used by backends and shared context systems
  */

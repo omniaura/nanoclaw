@@ -84,9 +84,9 @@ For system-wide access:
 export PATH="$PATH:$(pwd)/.claude/skills/github"
 ```
 
-## Integration with NanoClaw
+## Integration with OmniClaw
 
-This skill can be invoked from NanoClaw agents to:
+This skill can be invoked from OmniClaw agents to:
 
 - **Quarterly Planning**: Create planning threads for each quarter
 - **Progress Tracking**: Post weekly updates to ongoing discussions
@@ -127,7 +127,7 @@ Create quarterly planning discussions at the start of each quarter:
 
 ```bash
 gh-discussion-create omniaura/quarterplan-dashboard "Announcements" \
-  "Q1 2026 Planning" "Our focus areas for Q1: 1) Mac Runner stability, 2) Ditto MCP improvements, 3) NanoClaw agent coordination"
+  "Q1 2026 Planning" "Our focus areas for Q1: 1) Mac Runner stability, 2) Ditto MCP improvements, 3) OmniClaw agent coordination"
 ```
 
 ### 2. Feature Proposal Workflow
@@ -154,17 +154,17 @@ Agents can use discussions as shared context:
 
 ```bash
 # Agent 1 creates discussion with findings
-gh-discussion-create omniaura/nanoclaw "Q&A" \
+gh-discussion-create omniaura/omniclaw "Q&A" \
   "Cloud-Local Communication Strategy" "Researched Sprites ↔ Apple Container communication patterns..."
 
 # Agent 2 adds insights to same discussion
-gh-discussion-comment omniaura/nanoclaw 15 \
+gh-discussion-comment omniaura/omniclaw 15 \
   "Found IPC file-based messaging system in src/ipc/. This could be extended for cloud-local comms."
 ```
 
 ## Architecture
 
-- ✅ **No NanoClaw core modifications** - Standalone bash scripts
+- ✅ **No OmniClaw core modifications** - Standalone bash scripts
 - ✅ **CLI-first design** - Easy to test and invoke
 - ✅ **GraphQL API** - Direct GitHub API access via `gh api graphql`
 - ✅ **Human-readable output** - Formatted with `jq` and `column`
@@ -222,7 +222,7 @@ DISCUSSION_ID=$(gh-discussion-create omniaura/quarterplan-dashboard "Announcemen
 
 # Add weekly updates as comments
 gh-discussion-comment omniaura/quarterplan-dashboard $DISCUSSION_ID "Week 1: Completed Mac Runner Phase 6"
-gh-discussion-comment omniaura/quarterplan-dashboard $DISCUSSION_ID "Week 2: NanoClaw stability audit"
+gh-discussion-comment omniaura/quarterplan-dashboard $DISCUSSION_ID "Week 2: OmniClaw stability audit"
 ```
 
 **Feature Brainstorming**:

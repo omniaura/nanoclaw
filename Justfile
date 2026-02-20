@@ -1,20 +1,20 @@
-# NanoClaw commands
-# See CLAUDE.md for setup (launchctl plist in ~/Library/LaunchAgents/com.nanoclaw.plist)
+# OmniClaw commands
+# See CLAUDE.md for setup (launchctl plist in ~/Library/LaunchAgents/com.omniclaw.plist)
 
-# Default: start or restart NanoClaw. Bootstraps service if not yet loaded.
+# Default: start or restart OmniClaw. Bootstraps service if not yet loaded.
 default:
     #!/usr/bin/env bash
     set -e
-    PLIST=~/Library/LaunchAgents/com.nanoclaw.plist
+    PLIST=~/Library/LaunchAgents/com.omniclaw.plist
     if [ ! -f "$PLIST" ]; then
         echo "Plist not found. Run: just install"
         exit 1
     fi
-    if launchctl kickstart -k gui/$(id -u)/com.nanoclaw 2>/dev/null; then
-        echo "NanoClaw restarted"
+    if launchctl kickstart -k gui/$(id -u)/com.omniclaw 2>/dev/null; then
+        echo "OmniClaw restarted"
     else
         launchctl bootstrap gui/$(id -u) "$PLIST"
-        echo "NanoClaw started"
+        echo "OmniClaw started"
     fi
 
 # Install launchd plist and start service (run once)
@@ -24,18 +24,18 @@ install:
     BUN_PATH=$(which bun)
     PROJECT_ROOT=$(pwd)
     HOME_PATH=$HOME
-    PLIST=~/Library/LaunchAgents/com.nanoclaw.plist
+    PLIST=~/Library/LaunchAgents/com.omniclaw.plist
     mkdir -p ~/Library/LaunchAgents
-    sed -e "s|{{ "{{" + "NODE_PATH" + "}}" }}|$BUN_PATH|g" -e "s|{{ "{{" + "PROJECT_ROOT" + "}}" }}|$PROJECT_ROOT|g" -e "s|{{ "{{" + "HOME" + "}}" }}|$HOME_PATH|g" launchd/com.nanoclaw.plist > "$PLIST"
+    sed -e "s|{{ "{{" + "NODE_PATH" + "}}" }}|$BUN_PATH|g" -e "s|{{ "{{" + "PROJECT_ROOT" + "}}" }}|$PROJECT_ROOT|g" -e "s|{{ "{{" + "HOME" + "}}" }}|$HOME_PATH|g" launchd/com.omniclaw.plist > "$PLIST"
     echo "Installed plist (bun: $BUN_PATH, project: $PROJECT_ROOT)"
     bun run build
     mkdir -p logs
     launchctl bootstrap gui/$(id -u) "$PLIST"
-    echo "NanoClaw started"
+    echo "OmniClaw started"
 
-# Restart NanoClaw (stop + start) — use after container rebuild or config changes
+# Restart OmniClaw (stop + start) — use after container rebuild or config changes
 restart:
-    launchctl kickstart -k gui/$(id -u)/com.nanoclaw
+    launchctl kickstart -k gui/$(id -u)/com.omniclaw
 
 # Build the host/orchestrator (dist/index.js)
 build:
@@ -46,18 +46,18 @@ build-all:
     just build
     just build-container
 
-# Tail NanoClaw logs (follow mode)
+# Tail OmniClaw logs (follow mode)
 tail:
-    tail -f logs/nanoclaw.log
+    tail -f logs/omniclaw.log
 
 # Build the agent container image. Usage: just build-container [tag]  (default tag: latest)
 build-container tag="latest":
     ./container/build.sh {{tag}}
 
-# Stop NanoClaw (unload launchd service)
+# Stop OmniClaw (unload launchd service)
 stop:
-    launchctl bootout gui/$(id -u)/com.nanoclaw
-    echo "NanoClaw stopped"
+    launchctl bootout gui/$(id -u)/com.omniclaw
+    echo "OmniClaw stopped"
 
 
 # Disable project access (unmount /workspace/project) for a group.
@@ -79,7 +79,7 @@ disable-project-access group="main":
     SELECT changes();
     ")
     if [ "$ROWS" -gt 0 ]; then
-        echo "Project access disabled for {{group}}. Restart NanoClaw: just restart"
+        echo "Project access disabled for {{group}}. Restart OmniClaw: just restart"
     else
         echo "Group '{{group}}' not found in registered_groups."
         exit 1
@@ -106,7 +106,7 @@ unmount-workspaces group="main":
     SELECT changes();
     ")
     if [ "$ROWS" -gt 0 ]; then
-        echo "Additional mounts removed for {{group}}. Restart NanoClaw: just restart"
+        echo "Additional mounts removed for {{group}}. Restart OmniClaw: just restart"
     else
         echo "Group '{{group}}' not found in registered_groups."
         exit 1
@@ -134,7 +134,7 @@ enable-project-access group="main":
     SELECT changes();
     ")
     if [ "$ROWS" -gt 0 ]; then
-        echo "Project access enabled for {{group}}. Restart NanoClaw: just restart"
+        echo "Project access enabled for {{group}}. Restart OmniClaw: just restart"
     else
         echo "Group '{{group}}' not found in registered_groups."
         exit 1
@@ -162,7 +162,7 @@ enable-ditto-mcp group="main":
     "
     ROWS=$(sqlite3 "$DB" "SELECT changes();")
     if [ "$ROWS" -gt 0 ]; then
-        echo "Ditto MCP enabled for {{group}}. Set DITTO_MCP_TOKEN in .env and restart NanoClaw."
+        echo "Ditto MCP enabled for {{group}}. Set DITTO_MCP_TOKEN in .env and restart OmniClaw."
     else
         echo "Group '{{group}}' not found in registered_groups."
         exit 1

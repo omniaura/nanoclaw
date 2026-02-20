@@ -1,11 +1,11 @@
-# NanoClaw Auto-Update Guide
+# OmniClaw Auto-Update Guide
 
-This document describes how to update NanoClaw instances to pick up the latest code and rebuild containers.
+This document describes how to update OmniClaw instances to pick up the latest code and rebuild containers.
 
 ## Quick Update
 
 ```bash
-# From the nanoclaw repo root:
+# From the omniclaw repo root:
 ./container/auto-update.sh
 ```
 
@@ -21,7 +21,7 @@ If you prefer to update manually:
 ### 1. Pull Latest Code
 
 ```bash
-cd /path/to/nanoclaw
+cd /path/to/omniclaw
 git pull origin main
 ```
 
@@ -99,7 +99,7 @@ jobs:
         run: |
           cd container
           # Use Docker for GitHub Actions
-          docker build -t nanoclaw-agent:latest .
+          docker build -t omniclaw-agent:latest .
 
       - name: Push to registry
         run: |
@@ -109,7 +109,7 @@ jobs:
       - name: Deploy to Fly.io
         run: |
           # Deploy to cloud instances
-          fly deploy --app nanoclaw-main
+          fly deploy --app omniclaw-main
 ```
 
 ### Scheduled Updates
@@ -149,7 +149,7 @@ ps aux | grep agent-runner
 tail -f /workspace/server/logs/*.log
 
 # Test basic functionality
-echo '{"prompt":"test","groupFolder":"test","chatJid":"test@g.us"}' | container run -i nanoclaw-agent:latest
+echo '{"prompt":"test","groupFolder":"test","chatJid":"test@g.us"}' | container run -i omniclaw-agent:latest
 ```
 
 ## Troubleshooting

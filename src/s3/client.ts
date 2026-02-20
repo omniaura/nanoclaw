@@ -1,5 +1,5 @@
 /**
- * NanoClaw S3 Client
+ * OmniClaw S3 Client
  * Wraps Bun.S3Client for B2-compatible storage operations.
  * Provides typed operations for inbox/outbox/context/sync/files.
  *
@@ -46,7 +46,7 @@ interface S3ClientInstance {
   // Bun.S3Client doesn't have a list operation — we use the S3 ListObjectsV2 API directly
 }
 
-export interface NanoClawS3Config {
+export interface OmniClawS3Config {
   endpoint: string;
   accessKeyId: string;
   secretAccessKey: string;
@@ -59,7 +59,7 @@ export interface NanoClawS3Config {
  * Bun.S3Client doesn't expose list, so we call the API directly.
  */
 async function listObjects(
-  config: NanoClawS3Config,
+  config: OmniClawS3Config,
   prefix: string,
   maxKeys = 100,
 ): Promise<string[]> {
@@ -119,11 +119,11 @@ async function listObjects(
   return keys;
 }
 
-export class NanoClawS3 {
+export class OmniClawS3 {
   private client: S3ClientInstance;
-  private config: NanoClawS3Config;
+  private config: OmniClawS3Config;
 
-  constructor(config: NanoClawS3Config) {
+  constructor(config: OmniClawS3Config) {
     this.config = config;
     this.client = new Bun.S3Client({
       endpoint: config.endpoint,

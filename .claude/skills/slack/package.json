@@ -1,5 +1,5 @@
 {
-  "name": "nanoclaw-slack-skill",
+  "name": "omniclaw-slack-skill",
   "version": "0.1.0",
   "type": "module",
   "dependencies": {

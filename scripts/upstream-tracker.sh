@@ -6,7 +6,7 @@ set -euo pipefail
 
 NANOCLAW_REPO="qwibitai/nanoclaw"
 MICROCLAW_REPO="cosmin/microclaw"
-FORK_REPO="omniaura/nanoclaw"
+FORK_REPO="omniaura/omniclaw"
 
 echo "🔍 Fetching upstream changes..."
 git fetch upstream --quiet || echo "⚠️  Failed to fetch from upstream"
@@ -28,4 +28,4 @@ echo ""
 echo "✅ Upstream tracking complete!"
 echo ""
 echo "💡 To create a tracking issue on ${FORK_REPO}:"
-echo "   gh issue create --title \"[Upstream PR #X] Feature name\" --body \"Link: https://github.com/${NANOCLAW_REPO}/pull/X\""
+echo "   gh issue create --repo ${FORK_REPO} --title \"[Upstream PR #X] Feature name\" --body \"Link: https://github.com/${NANOCLAW_REPO}/pull/X\""

@@ -119,7 +119,7 @@ When #1 is merged, Graphite automatically restacks #2 and #3 on main.
 
 ## Authentication
 
-Graphite CLI is pre-authenticated in NanoClaw containers using your GitHub token. No manual auth needed.
+Graphite CLI is pre-authenticated in OmniClaw containers using your GitHub token. No manual auth needed.
 
 ## Documentation
 

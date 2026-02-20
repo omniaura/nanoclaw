@@ -1,4 +1,4 @@
-# NanoClaw Agent Container
+# OmniClaw Agent Container
 # Runs Claude Agent SDK in isolated Linux VM
 
 FROM oven/bun:slim

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { mock as mockModule } from 'bun:test';
 
 mockModule.module('./config.js', () => ({
-  DATA_DIR: '/tmp/nanoclaw-test-data',
+  DATA_DIR: '/tmp/omniclaw-test-data',
   MAX_CONCURRENT_CONTAINERS: 3,
   MAX_TASK_CONTAINERS: 2,
 }));

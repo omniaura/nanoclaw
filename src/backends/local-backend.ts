@@ -1,5 +1,5 @@
 /**
- * Local Backend for NanoClaw
+ * Local Backend for OmniClaw
  * Runs agents in Apple Container (or Docker) on the local machine.
  * Extracted from container-runner.ts.
  */
@@ -282,7 +282,7 @@ export class LocalBackend implements AgentBackend {
 
     const mounts = buildVolumeMounts(group, input.isMain, input.isScheduledTask);
     const safeName = folder.replace(/[^a-zA-Z0-9-]/g, '-');
-    const containerName = `nanoclaw-${safeName}-${Date.now()}`;
+    const containerName = `omniclaw-${safeName}-${Date.now()}`;
     const containerArgs = buildContainerArgs(mounts, containerName);
     const configTimeout = containerCfg?.timeout || CONTAINER_TIMEOUT;
     const timeoutMs = Math.max(configTimeout, IDLE_TIMEOUT + 30_000);
@@ -598,8 +598,8 @@ export class LocalBackend implements AgentBackend {
   }
 
   async initialize(): Promise<void> {
-    // Kill any orphaned NanoClaw containers from a previous run
-    await $`pkill -f 'container run.*nanoclaw-'`.quiet().nothrow();
+    // Kill any orphaned OmniClaw containers from a previous run
+    await $`pkill -f 'container run.*omniclaw-'`.quiet().nothrow();
 
     // Idempotent start — fast no-op if already running
     logger.info('Starting Apple Container system...');
@@ -655,7 +655,7 @@ export class LocalBackend implements AgentBackend {
       const lsResult = await $`container ls --format json`.quiet();
       const containers: { status: string; configuration: { id: string } }[] = JSON.parse(lsResult.text() || '[]');
       const orphans = containers
-        .filter((c) => c.status === 'running' && c.configuration.id.startsWith('nanoclaw-'))
+        .filter((c) => c.status === 'running' && c.configuration.id.startsWith('omniclaw-'))
         .map((c) => c.configuration.id);
       await Promise.all(orphans.map((name) => $`container stop ${name}`.quiet().nothrow()));
       if (orphans.length > 0) {
